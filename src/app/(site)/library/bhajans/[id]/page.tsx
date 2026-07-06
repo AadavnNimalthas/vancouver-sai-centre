@@ -68,7 +68,7 @@ export default async function BhajanPage({
           )}
           {bhajan.sourceLink && (
             <a href={bhajan.sourceLink} className="btn btn-quiet" target="_blank" rel="noopener noreferrer">
-              View on CymRhythm
+              View on SaiRhythms
             </a>
           )}
         </Reveal>

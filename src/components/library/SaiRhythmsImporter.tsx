@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { parseCymRhythmUrl } from "@/lib/cymrhythm";
+import { parseSaiRhythmsUrl } from "@/lib/sairhythms";
 import { submitBhajan } from "@/lib/actions";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
-interface CymRhythmImporterProps {
+interface SaiRhythmsImporterProps {
   onClose: () => void;
   onSuccess: (message: string) => void;
 }
 
-export function CymRhythmImporter({ onClose, onSuccess }: CymRhythmImporterProps) {
+export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterProps) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -29,13 +29,13 @@ export function CymRhythmImporter({ onClose, onSuccess }: CymRhythmImporterProps
 
   function handleFetch() {
     if (!url) {
-      setError("Please paste a CymRhythm URL.");
+      setError("Please paste a SaiRhythms URL.");
       return;
     }
     setError("");
     startTransition(async () => {
       try {
-        const data = await parseCymRhythmUrl(url);
+        const data = await parseSaiRhythmsUrl(url);
         setImportedData(data);
         setTitle(data.title || "");
         setLyrics(data.lyrics || "");
@@ -84,17 +84,17 @@ export function CymRhythmImporter({ onClose, onSuccess }: CymRhythmImporterProps
       {!importedData ? (
         <div className="space-y-4">
           <div>
-            <label className="label text-ink-soft">Paste CymRhythm Bhajan URL</label>
+            <label className="label text-ink-soft">Paste SaiRhythms URL</label>
             <input
               type="url"
               className="field"
-              placeholder="https://www.cymrhythm.com/bhajans/shiva-shambho"
+              placeholder="https://sairhythms.sathyasai.org/bhajan/shiva-shambho"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               disabled={pending}
             />
             <p className="mt-1.5 text-[0.8rem] text-ink-faint">
-              Example: Try pasting `https://www.cymrhythm.com/bhajans/shiva-shambho` to see auto-extraction work.
+              Example: Try pasting `https://sairhythms.sathyasai.org/bhajan/shiva-shambho` to see auto-extraction work.
             </p>
           </div>
 
@@ -178,7 +178,7 @@ export function CymRhythmImporter({ onClose, onSuccess }: CymRhythmImporterProps
               </select>
             </div>
             <div>
-              <label className="label">Source Link (CymRhythm)</label>
+              <label className="label">Source Link (SaiRhythms)</label>
               <input className="field" value={url} disabled />
             </div>
           </div>

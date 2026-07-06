@@ -1,6 +1,6 @@
 import type { Bhajan } from "./types";
 
-interface CymRhythmInfo {
+interface SaiRhythmsInfo {
   title: string;
   lyrics: string;
   meaning: string;
@@ -11,7 +11,7 @@ interface CymRhythmInfo {
   sourceLink: string;
 }
 
-const MOCK_CYMRHYTHM_BHAJANS: Record<string, CymRhythmInfo> = {
+const MOCK_SAIRHYTHMS_BHAJANS: Record<string, SaiRhythmsInfo> = {
   "shiva-shambho": {
     title: "Shiva Shambho Shambo",
     lyrics: "Shiva Shambho Shambho Shiva Shambho Shambho\nHara Hara Shambho Mahadeva\nGanga Dhara Dhara Shambho Mahadeva\nHala Hala Dhara Shambho Mahadeva",
@@ -20,7 +20,7 @@ const MOCK_CYMRHYTHM_BHAJANS: Record<string, CymRhythmInfo> = {
     tempo: "medium",
     beatTaal: "8 Beat / Keherwa",
     category: "Shiva",
-    sourceLink: "https://www.cymrhythm.com/bhajans/shiva-shambho",
+    sourceLink: "https://sairhythms.sathyasai.org/bhajan/shiva-shambho",
   },
   "ganesha-sharanam": {
     title: "Ganesha Sharanam Parama Pavanam",
@@ -30,7 +30,7 @@ const MOCK_CYMRHYTHM_BHAJANS: Record<string, CymRhythmInfo> = {
     tempo: "slow",
     beatTaal: "8 Beat / Keherwa",
     category: "Ganesha",
-    sourceLink: "https://www.cymrhythm.com/bhajans/ganesha-sharanam",
+    sourceLink: "https://sairhythms.sathyasai.org/bhajan/ganesha-sharanam",
   },
   "hari-hari-bhajan-do": {
     title: "Hari Hari Bhajan Do Mana",
@@ -40,7 +40,7 @@ const MOCK_CYMRHYTHM_BHAJANS: Record<string, CymRhythmInfo> = {
     tempo: "medium",
     beatTaal: "8 Beat / Keherwa",
     category: "Krishna",
-    sourceLink: "https://www.cymrhythm.com/bhajans/hari-hari-bhajan-do",
+    sourceLink: "https://sairhythms.sathyasai.org/bhajan/hari-hari-bhajan-do",
   },
   "sai-prema-pradata": {
     title: "Sai Prema Pradata Anandadatha",
@@ -50,11 +50,11 @@ const MOCK_CYMRHYTHM_BHAJANS: Record<string, CymRhythmInfo> = {
     tempo: "fast",
     beatTaal: "8-Beat / Dadra Double",
     category: "Sai",
-    sourceLink: "https://www.cymrhythm.com/bhajans/sai-prema-pradata",
+    sourceLink: "https://sairhythms.sathyasai.org/bhajan/sai-prema-pradata",
   },
 };
 
-export async function parseCymRhythmUrl(url: string): Promise<Partial<Bhajan>> {
+export async function parseSaiRhythmsUrl(url: string): Promise<Partial<Bhajan>> {
   if (!url) {
     throw new Error("URL is empty");
   }
@@ -63,14 +63,14 @@ export async function parseCymRhythmUrl(url: string): Promise<Partial<Bhajan>> {
   const trimmed = url.trim().toLowerCase();
   
   // Basic validation
-  if (!trimmed.includes("cymrhythm.com")) {
-    throw new Error("Not a valid CymRhythm URL");
+  if (!trimmed.includes("sairhythms.sathyasai.org")) {
+    throw new Error("Not a valid SaiRhythms URL");
   }
 
   // Look for match in mock list
-  for (const slug of Object.keys(MOCK_CYMRHYTHM_BHAJANS)) {
+  for (const slug of Object.keys(MOCK_SAIRHYTHMS_BHAJANS)) {
     if (trimmed.includes(slug)) {
-      const bhajanInfo = MOCK_CYMRHYTHM_BHAJANS[slug];
+      const bhajanInfo = MOCK_SAIRHYTHMS_BHAJANS[slug];
       return {
         title: bhajanInfo.title,
         lyrics: bhajanInfo.lyrics,
@@ -87,10 +87,10 @@ export async function parseCymRhythmUrl(url: string): Promise<Partial<Bhajan>> {
     }
   }
 
-  // Fallback: If it's a generic CymRhythm URL, extract title from url structure
-  // e.g. https://www.cymrhythm.com/bhajans/some-bhajan-title
+  // Fallback: If it's a generic SaiRhythms URL, extract title from url structure
+  // e.g. https://sairhythms.sathyasai.org/bhajan/some-bhajan-title
   try {
-    const parts = trimmed.split("/bhajans/");
+    const parts = trimmed.split(/\/bhajans?\/+/);
     if (parts.length > 1) {
       const titleSlug = parts[1].split(/[?#]/)[0];
       const parsedTitle = titleSlug

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { Bhajan } from "@/lib/types";
-import { CymRhythmImporter } from "../library/CymRhythmImporter";
+import { SaiRhythmsImporter } from "../library/SaiRhythmsImporter";
 import { submitBhajan } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -189,7 +189,7 @@ export function BhajanSelector({
                   {suggestMode === "manual"
                     ? "Suggest New Bhajan"
                     : suggestMode === "import"
-                    ? "Import from CymRhythm"
+                    ? "Import from SaiRhythms"
                     : `Select Bhajan for ${slotName}`}
                 </h3>
                 <button
@@ -352,14 +352,14 @@ export function BhajanSelector({
                 )}
 
                 {suggestMode === "import" && (
-                  <CymRhythmImporter
+                  <SaiRhythmsImporter
                     onClose={() => setSuggestMode("none")}
                     onSuccess={(msg) => {
                       // We handle auto-selection inside success callback by fetching latest suggested bhajans
-                      // In this component, CymRhythmImporter will suggest the bhajan and trigger onSuccess.
-                      // Since we mock it in CymRhythmImporter.tsx, it'll run revalidate.
+                      // In this component, SaiRhythmsImporter will suggest the bhajan and trigger onSuccess.
+                      // Since we mock it in SaiRhythmsImporter.tsx, it'll run revalidate.
                       // Let's pass parent handler so we can auto-attach.
-                      // To do that, let's look at how to get the ID. CymRhythmImporter returns onSuccess with message.
+                      // To do that, let's look at how to get the ID. SaiRhythmsImporter returns onSuccess with message.
                       // For a smooth demo, we'll let the user search and select the newly added item from "My Suggestions".
                     }}
                   />
@@ -375,7 +375,7 @@ export function BhajanSelector({
                         onClick={() => setSuggestMode("import")}
                         className="btn btn-quiet !px-3.5 !py-1.5 text-xs font-semibold"
                       >
-                        Import from CymRhythm
+                        Import from SaiRhythms
                       </button>
                       <button
                         onClick={() => {

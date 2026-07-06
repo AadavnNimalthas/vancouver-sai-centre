@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { FilterChip } from "@/components/events/EventsExplorer";
 import type { Bhajan } from "@/lib/types";
-import { CymRhythmImporter } from "./CymRhythmImporter";
+import { SaiRhythmsImporter } from "./SaiRhythmsImporter";
 import { submitBhajan } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -278,7 +278,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                   {suggestMode === "manual"
                     ? "Suggest New Bhajan"
                     : suggestMode === "import"
-                    ? "Import from CymRhythm"
+                    ? "Import from SaiRhythms"
                     : "Add New Bhajan"}
                 </h3>
                 <button
@@ -298,9 +298,9 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                       className="card p-6 border-line hover:border-gold bg-white-warm hover:bg-sand/15 transition-all text-left flex flex-col justify-between h-40"
                     >
                       <div>
-                        <h4 className="font-display text-xl font-semibold text-ink">CymRhythm Import</h4>
+                        <h4 className="font-display text-xl font-semibold text-ink">SaiRhythms Import</h4>
                         <p className="text-xs text-ink-soft mt-2 leading-relaxed">
-                          Paste a CymRhythm URL to auto-extract lyrics, meaning, language, category, and speed notes.
+                          Paste a SaiRhythms URL to auto-extract lyrics, meaning, language, category, and speed notes.
                         </p>
                       </div>
                       <span className="text-xs text-gold font-bold uppercase tracking-wider">Use Importer &rarr;</span>
@@ -366,7 +366,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                 )}
 
                 {suggestMode === "import" && (
-                  <CymRhythmImporter
+                  <SaiRhythmsImporter
                     onClose={() => setSuggestMode("none")}
                     onSuccess={(msg) => {
                       setSuccessMessage(msg);
