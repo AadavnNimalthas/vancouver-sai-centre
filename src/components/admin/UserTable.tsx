@@ -1,8 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setUserRole } from "@/lib/admin-actions";
-import { ROLES, ROLE_LABELS, type Profile, type Role } from "@/lib/types";
+import { setUserRole, setUserWing } from "@/lib/admin-actions";
+import {
+  ROLES,
+  ROLE_LABELS,
+  WING_LABELS,
+  WING_SLUGS,
+  type Profile,
+  type Role,
+  type WingSlug,
+} from "@/lib/types";
 import { formatShortDate } from "@/lib/format";
 
 export function UserTable({
@@ -27,6 +35,13 @@ export function UserTable({
     });
   }
 
+  function changeWing(id: string, wing: WingSlug | null) {
+    setLocal((rows) => rows.map((p) => (p.id === id ? { ...p, wing } : p)));
+    startTransition(() => {
+      setUserWing(id, wing);
+    });
+  }
+
   return (
     <div>
       <input
@@ -47,6 +62,7 @@ export function UserTable({
               <th>Joined</th>
               <th>Interests</th>
               <th>Role</th>
+              <th>Wing</th>
             </tr>
           </thead>
           <tbody>
@@ -72,6 +88,29 @@ export function UserTable({
                     </select>
                   ) : (
                     <span className="text-ink-soft">{ROLE_LABELS[p.role]}</span>
+                  )}
+                </td>
+                <td>
+                  {p.role === "wing-lead" && canEditRoles ? (
+                    <select
+                      className="field !w-auto !py-1.5 text-[0.85rem]"
+                      value={p.wing ?? ""}
+                      onChange={(e) =>
+                        changeWing(p.id, (e.target.value || null) as WingSlug | null)
+                      }
+                      aria-label={`Wing for ${p.fullName}`}
+                    >
+                      <option value="">No wing</option>
+                      {WING_SLUGS.map((w) => (
+                        <option key={w} value={w}>
+                          {WING_LABELS[w]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-ink-soft">
+                      {p.wing ? WING_LABELS[p.wing] : "—"}
+                    </span>
                   )}
                 </td>
               </tr>

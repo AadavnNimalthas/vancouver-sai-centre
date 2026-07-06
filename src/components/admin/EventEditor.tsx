@@ -30,7 +30,7 @@ export function EventEditor({
     bannerUrl: event?.bannerUrl ?? null,
     startsAt: event?.startsAt ?? "",
     endsAt: event?.endsAt ?? "",
-    location: event?.location ?? "Vancouver Sai Centre, 3855 Albert St, Burnaby",
+    location: event?.location ?? "Vancouver Sai Centre, 2215 East Hender Street, Vancouver",
     capacity: event?.capacity ?? null,
     registrationEnabled: event?.registrationEnabled ?? false,
     volunteerSignupEnabled: event?.volunteerSignupEnabled ?? false,

@@ -50,6 +50,7 @@ export type Role =
   | "volunteer"
   | "wing-lead"
   | "executive"
+  | "president"
   | "administrator";
 
 export const ROLES: Role[] = [
@@ -58,6 +59,7 @@ export const ROLES: Role[] = [
   "volunteer",
   "wing-lead",
   "executive",
+  "president",
   "administrator",
 ];
 
@@ -65,9 +67,10 @@ export const ROLE_LABELS: Record<Role, string> = {
   visitor: "Visitor",
   member: "Member",
   volunteer: "Volunteer",
-  "wing-lead": "Wing Lead",
+  "wing-lead": "Wing Coordinator",
   executive: "Executive",
-  administrator: "Administrator",
+  president: "President",
+  administrator: "Web Team (Super Admin)",
 };
 
 const ROLE_RANK: Record<Role, number> = {
@@ -76,8 +79,49 @@ const ROLE_RANK: Record<Role, number> = {
   volunteer: 2,
   "wing-lead": 3,
   executive: 4,
-  administrator: 5,
+  president: 5,
+  administrator: 6,
 };
+
+/* Wings a coordinator can be scoped to */
+export type WingSlug = "devotional" | "service" | "education" | "young-adults";
+
+export const WING_SLUGS: WingSlug[] = ["devotional", "service", "education", "young-adults"];
+
+export const WING_LABELS: Record<WingSlug, string> = {
+  devotional: "Devotional",
+  service: "Service",
+  education: "Education",
+  "young-adults": "Young Adults",
+};
+
+/** Which wing owns each event category. Special events and retreats belong to no single wing. */
+export function wingForCategory(category: EventCategory): WingSlug | null {
+  switch (category) {
+    case "devotional":
+      return "devotional";
+    case "service":
+      return "service";
+    case "education":
+    case "sse":
+      return "education";
+    case "young-adults":
+      return "young-adults";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Wing coordinators may only manage content in their own wing (plus wings
+ * they have been granted access to). Executives and above manage everything.
+ */
+export function canManageWing(profile: Profile, wing: WingSlug | null): boolean {
+  if (roleAtLeast(profile.role, "executive")) return true;
+  if (profile.role !== "wing-lead") return false;
+  if (wing === null) return false;
+  return profile.wing === wing || (profile.extraWings ?? []).includes(wing);
+}
 
 export function roleAtLeast(role: Role, minimum: Role): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[minimum];
@@ -91,6 +135,19 @@ export interface Profile {
   interests: string[];
   joinedAt: string;
   avatarUrl: string | null;
+  /** Home wing for wing coordinators */
+  wing: WingSlug | null;
+  /** Additional wings this coordinator has been granted access to */
+  extraWings: WingSlug[];
+}
+
+export interface AccessRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  wing: WingSlug;
+  status: "pending" | "approved" | "denied";
+  createdAt: string;
 }
 
 export type RegistrationStatus = "registered" | "waitlisted" | "checked-in" | "cancelled";
@@ -185,7 +242,7 @@ export const RESOURCE_KINDS: { value: ResourceKind; label: string }[] = [
   { value: "video", label: "Videos" },
   { value: "audio", label: "Audio" },
   { value: "bhajan", label: "Bhajans" },
-  { value: "study", label: "Study materials" },
+  { value: "study", label: "Study Circle" },
   { value: "discourse", label: "Discourses" },
 ];
 
@@ -215,7 +272,7 @@ export interface Bhajan {
   videoUrl: string | null;
   status: "pending" | "approved" | "rejected" | "archived";
   createdBy?: string | null;
-  additionalMetadata?: Record<string, any>;
+  additionalMetadata?: Record<string, unknown>;
   createdAt?: string;
 }
 
@@ -251,6 +308,8 @@ export interface Album {
   eventId: string | null;
   coverUrl: string;
   date: string;
+  /** When set, the album lives in Google Photos and the card links there. */
+  googlePhotosUrl: string | null;
   photos: Photo[];
 }
 
@@ -262,12 +321,32 @@ export interface Photo {
   height: number;
 }
 
+export interface WingSubgroup {
+  id: string;
+  title: string;
+  description: string;
+  links: { label: string; url: string }[];
+}
+
 export interface Wing {
   slug: string;
   name: string;
   tagline: string;
   description: string;
   activities: string[];
+  imageUrl: string | null;
+  subgroups: WingSubgroup[];
+}
+
+/** A physical book in the centre's Sai literature library. */
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  category: string;
+  description: string;
+  available: boolean;
+  createdAt: string;
 }
 
 /* ── Posts (CMS) ─────────────────────────────────────────── */
@@ -341,9 +420,30 @@ export interface BCGroup {
   link: string;
 }
 
+export interface MeetTime {
+  label: string;
+  time: string;
+}
+
+export interface ValueItem {
+  name: string;
+  sanskrit: string;
+  line: string;
+}
+
 export interface SiteContent {
+  /** Shown at the top of the homepage when there are no featured posts. */
+  heroTitle: string;
+  heroSubtitle: string;
   intro: string;
   address: string;
+  contactEmail: string;
+  parkingInfo: string;
+  /** Google Maps embed URL for the contact page (optional). */
+  mapEmbedUrl: string;
+  whenMeet: MeetTime[];
+  valuesIntro: string;
+  values: ValueItem[];
   babaTitle: string;
   babaBody: string;
   sssioTitle: string;

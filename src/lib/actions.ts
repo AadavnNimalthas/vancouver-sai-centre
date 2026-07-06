@@ -5,8 +5,8 @@ import { isSupabaseConfigured } from "./config";
 import { getCurrentUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
-import { getDemoDb, saveDemoDb } from "./demo-db-store";
-import type { Bhajan } from "./types";
+import { getDemoDb, mutateDemoDb, newId, saveDemoDb } from "./demo-db-store";
+import type { Bhajan, Registration } from "./types";
 
 export interface ActionResult {
   ok: boolean;
@@ -27,18 +27,65 @@ export async function submitRegistration(input: {
   guestEmail?: string;
   guestName?: string;
 }): Promise<ActionResult> {
+  const user = await getCurrentUser();
+
   if (!isSupabaseConfigured) {
-    return {
-      ok: true,
-      message:
-        input.kind === "volunteer"
-          ? "Thank you for offering your time. We have recorded your volunteer signup (demo mode, nothing was saved)."
-          : "You are registered (demo mode, nothing was saved).",
-    };
+    return mutateDemoDb((db) => {
+      const event = db.events.find((e) => e.id === input.eventId);
+      if (!event) return { ok: false, message: "This event no longer exists." };
+      if (input.kind === "attendee" && !event.registrationEnabled)
+        return { ok: false, message: "Registration is not open for this event." };
+      if (input.kind === "volunteer" && !event.volunteerSignupEnabled)
+        return { ok: false, message: "Volunteer signup is not open for this event." };
+
+      const already = db.registrations.some(
+        (r) =>
+          r.eventId === input.eventId &&
+          r.userId === (user?.id ?? "") &&
+          r.kind === input.kind &&
+          r.status !== "cancelled"
+      );
+      if (user && already)
+        return { ok: false, message: "You are already signed up for this event." };
+
+      const active = db.registrations.filter(
+        (r) =>
+          r.eventId === input.eventId &&
+          r.kind === "attendee" &&
+          (r.status === "registered" || r.status === "checked-in")
+      ).length;
+      const waitlisted =
+        input.kind === "attendee" && event.capacity !== null && active >= event.capacity;
+
+      const registration: Registration = {
+        id: newId("rg"),
+        eventId: input.eventId,
+        userId: user?.id ?? "",
+        kind: input.kind,
+        status: waitlisted ? "waitlisted" : "registered",
+        answers: input.answers,
+        createdAt: new Date().toISOString(),
+        userName: user?.fullName ?? input.guestName,
+        userEmail: user?.email ?? input.guestEmail,
+      };
+      db.registrations.push(registration);
+      event.registeredCount = waitlisted ? active : active + (input.kind === "attendee" ? 1 : 0);
+
+      revalidatePath("/portal/registrations");
+      revalidatePath(`/events/${event.slug}`);
+      return {
+        ok: true,
+        waitlisted,
+        message: waitlisted
+          ? "The event is full, so you have been added to the waitlist. We will email you if a spot opens."
+          : input.kind === "volunteer"
+            ? "Thank you for offering your time. The coordinator will be in touch."
+            : "You are registered.",
+      };
+    });
   }
 
   const supabase = await createClient();
-  const user = await getCurrentUser();
 
   const { data: event } = await supabase
     .from("events")
@@ -111,12 +158,31 @@ export async function submitRegistration(input: {
 }
 
 export async function cancelRegistration(registrationId: string): Promise<ActionResult> {
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Registration cancelled (demo mode)." };
-
-  const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "Please sign in first." };
+
+  if (!isSupabaseConfigured) {
+    return mutateDemoDb((db) => {
+      const reg = db.registrations.find(
+        (r) => r.id === registrationId && r.userId === user.id
+      );
+      if (!reg) return { ok: false, message: "Could not cancel this registration." };
+      reg.status = "cancelled";
+      const event = db.events.find((e) => e.id === reg.eventId);
+      if (event) {
+        event.registeredCount = db.registrations.filter(
+          (r) =>
+            r.eventId === event.id &&
+            r.kind === "attendee" &&
+            (r.status === "registered" || r.status === "checked-in")
+        ).length;
+      }
+      revalidatePath("/portal/registrations");
+      return { ok: true, message: "Registration cancelled." };
+    });
+  }
+
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("registrations")
@@ -136,7 +202,20 @@ export async function submitContact(input: {
   message: string;
 }): Promise<ActionResult> {
   if (!isSupabaseConfigured) {
-    return { ok: true, message: "Thank you. Your message has been received (demo mode)." };
+    mutateDemoDb((db) => {
+      db.contactMessages.push({
+        id: newId("msg"),
+        name: input.name,
+        email: input.email,
+        subject: input.subject,
+        message: input.message,
+        createdAt: new Date().toISOString(),
+      });
+    });
+    return {
+      ok: true,
+      message: "Thank you. Your message has been received. We usually reply within two days.",
+    };
   }
   const supabase = await createClient();
   const { error } = await supabase.from("contact_messages").insert({
@@ -157,12 +236,19 @@ export async function submitContact(input: {
 }
 
 export async function saveInterests(interests: string[]): Promise<ActionResult> {
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Preferences saved (demo mode)." };
-
-  const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "Please sign in first." };
+
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      const profile = db.profiles.find((p) => p.id === user.id);
+      if (profile) profile.interests = interests;
+    });
+    revalidatePath("/portal/notifications");
+    return { ok: true, message: "Preferences saved." };
+  }
+
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("profiles")
@@ -188,7 +274,7 @@ export async function submitBhajan(input: {
   videoUrl?: string | null;
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
-  const userId = user?.id ?? "user-demo";
+  const userId = user?.id ?? "local-admin";
 
   if (!isSupabaseConfigured) {
     const db = getDemoDb();

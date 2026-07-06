@@ -5,17 +5,20 @@ import { isSupabaseConfigured } from "./config";
 import { requireRole } from "./auth";
 import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
-import { getDemoDb, saveDemoDb } from "./demo-db-store";
+import { getDemoDb, mutateDemoDb, newId, saveDemoDb } from "./demo-db-store";
 import type { ActionResult } from "./actions";
-import type {
-  FormField,
-  PostPlacement,
-  RegistrationStatus,
-  Role,
-  SiteContent,
-  Wing,
-  Bhajan,
-  BhajanSignUpForm,
+import {
+  canManageWing,
+  wingForCategory,
+  type EventCategory,
+  type FormField,
+  type PostPlacement,
+  type Profile,
+  type RegistrationStatus,
+  type Role,
+  type SiteContent,
+  type Wing,
+  type WingSlug,
 } from "./types";
 
 
@@ -23,6 +26,12 @@ async function guard(minimum: Role = "wing-lead") {
   const user = await requireRole(minimum);
   if (!user) throw new Error("Not authorized");
   return user;
+}
+
+/** Wing coordinators may only touch content in their own wing(s). */
+function checkWingScope(user: Profile, category: string): string | null {
+  if (canManageWing(user, wingForCategory(category as EventCategory))) return null;
+  return "Wing coordinators can only manage content for their own wing.";
 }
 
 export interface EventInput {
@@ -46,9 +55,36 @@ export interface EventInput {
 }
 
 export async function saveEvent(input: EventInput): Promise<ActionResult> {
-  await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Event saved (demo mode, changes are not persisted)." };
+  const user = await guard();
+  const scopeError = checkWingScope(user, input.category);
+  if (scopeError) return { ok: false, message: scopeError };
+
+  const slug =
+    input.slug ||
+    input.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (input.id) {
+        const idx = db.events.findIndex((e) => e.id === input.id);
+        if (idx >= 0)
+          db.events[idx] = { ...db.events[idx], ...input, id: input.id, slug } as never;
+      } else {
+        db.events.push({
+          ...input,
+          id: newId("ev"),
+          slug,
+          category: input.category as EventCategory,
+          recurrence: input.recurrence as never,
+          registeredCount: 0,
+        });
+      }
+    });
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/admin/events");
+    return { ok: true, message: "Event saved." };
+  }
 
   const supabase = await createClient();
   const row = {
@@ -81,8 +117,16 @@ export async function saveEvent(input: EventInput): Promise<ActionResult> {
 
 export async function deleteEvent(id: string): Promise<ActionResult> {
   await guard("executive");
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Event deleted (demo mode)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.events = db.events.filter((e) => e.id !== id);
+      db.registrations = db.registrations.filter((r) => r.eventId !== id);
+    });
+    revalidatePath("/");
+    revalidatePath("/events");
+    revalidatePath("/admin/events");
+    return { ok: true, message: "Event deleted." };
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("events").delete().eq("id", id);
   if (error) return { ok: false, message: "Could not delete the event." };
@@ -98,8 +142,34 @@ export async function saveForm(input: {
   published: boolean;
 }): Promise<ActionResult> {
   await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Form saved (demo mode, changes are not persisted)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (input.id) {
+        const idx = db.forms.findIndex((f) => f.id === input.id);
+        if (idx >= 0)
+          db.forms[idx] = {
+            ...db.forms[idx],
+            title: input.title,
+            description: input.description,
+            fields: input.fields,
+            published: input.published,
+            updatedAt: new Date().toISOString(),
+          };
+      } else {
+        db.forms.push({
+          id: newId("form"),
+          title: input.title,
+          description: input.description,
+          fields: input.fields,
+          published: input.published,
+          updatedAt: new Date().toISOString(),
+          attachedEventIds: [],
+        });
+      }
+    });
+    revalidatePath("/admin/forms");
+    return { ok: true, message: "Form saved." };
+  }
 
   const supabase = await createClient();
   const row = {
@@ -123,13 +193,28 @@ export async function sendAnnouncement(input: {
   topics: string[];
 }): Promise<ActionResult> {
   await guard("executive");
-  if (!isSupabaseConfigured)
+  if (!isSupabaseConfigured) {
+    const recipients = getDemoDb().profiles.filter((p) =>
+      p.interests.some((i) => input.topics.includes(i))
+    ).length;
+    mutateDemoDb((db) => {
+      db.announcements.unshift({
+        id: newId("an"),
+        title: input.title,
+        body: input.body,
+        topics: input.topics,
+        sentAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        recipients,
+        openRate: null,
+      });
+    });
+    revalidatePath("/admin/notifications");
     return {
       ok: true,
-      message:
-        "Announcement queued (demo mode). With Supabase + Resend connected it would go to every member following: " +
-        input.topics.join(", "),
+      message: `Announcement recorded for ${recipients} member${recipients === 1 ? "" : "s"}. Email sending starts once Supabase and Resend are connected.`,
     };
+  }
 
   const supabase = await createClient();
 
@@ -165,8 +250,14 @@ export async function sendAnnouncement(input: {
 
 export async function setUserRole(userId: string, role: Role): Promise<ActionResult> {
   await guard("administrator");
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Role updated (demo mode, changes are not persisted)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      const profile = db.profiles.find((p) => p.id === userId);
+      if (profile) profile.role = role;
+    });
+    revalidatePath("/admin/users");
+    return { ok: true, message: "Role updated." };
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
   if (error) return { ok: false, message: "Could not update the role." };
@@ -174,13 +265,46 @@ export async function setUserRole(userId: string, role: Role): Promise<ActionRes
   return { ok: true, message: "Role updated." };
 }
 
+export async function setUserWing(userId: string, wing: WingSlug | null): Promise<ActionResult> {
+  await guard("administrator");
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      const profile = db.profiles.find((p) => p.id === userId);
+      if (profile) profile.wing = wing;
+    });
+    revalidatePath("/admin/users");
+    return { ok: true, message: "Wing updated." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("profiles").update({ wing }).eq("id", userId);
+  if (error) return { ok: false, message: "Could not update the wing." };
+  revalidatePath("/admin/users");
+  return { ok: true, message: "Wing updated." };
+}
+
 export async function setRegistrationStatus(
   registrationId: string,
   status: RegistrationStatus
 ): Promise<ActionResult> {
   await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Updated (demo mode)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      const reg = db.registrations.find((r) => r.id === registrationId);
+      if (reg) {
+        reg.status = status;
+        const event = db.events.find((e) => e.id === reg.eventId);
+        if (event)
+          event.registeredCount = db.registrations.filter(
+            (r) =>
+              r.eventId === event.id &&
+              r.kind === "attendee" &&
+              (r.status === "registered" || r.status === "checked-in")
+          ).length;
+      }
+    });
+    revalidatePath("/admin/events");
+    return { ok: true, message: "Updated." };
+  }
   const supabase = await createClient();
   const { error } = await supabase
     .from("registrations")
@@ -201,8 +325,29 @@ export async function saveResource(input: {
   membersOnly: boolean;
 }): Promise<ActionResult> {
   await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Resource saved (demo mode, changes are not persisted)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (input.id) {
+        const idx = db.resources.findIndex((r) => r.id === input.id);
+        if (idx >= 0)
+          db.resources[idx] = { ...db.resources[idx], ...input, id: input.id } as never;
+      } else {
+        db.resources.push({
+          id: newId("rs"),
+          title: input.title,
+          description: input.description,
+          kind: input.kind as never,
+          url: input.url,
+          tags: input.tags,
+          membersOnly: input.membersOnly,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    });
+    revalidatePath("/admin/resources");
+    revalidatePath("/library/resources");
+    return { ok: true, message: "Resource saved." };
+  }
   const supabase = await createClient();
   const row = {
     title: input.title,
@@ -236,10 +381,55 @@ export interface PostInput {
   published: boolean;
 }
 
+const WING_PLACEMENTS: Record<string, WingSlug> = {
+  "wing-devotional": "devotional",
+  "wing-service": "service",
+  "wing-education": "education",
+  "wing-young-adults": "young-adults",
+};
+
 export async function savePost(input: PostInput): Promise<ActionResult> {
-  await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Post saved (demo mode, changes are not persisted)." };
+  const user = await guard();
+
+  // Posts are visual-first: an image, video, or Instagram post is required.
+  if (!input.imageUrl && !input.videoUrl && !input.instagramUrl)
+    return {
+      ok: false,
+      message: "Posts need an image, a video, or an Instagram link. Text-only posts are not allowed.",
+    };
+  if (input.placements.length === 0)
+    return { ok: false, message: "Choose at least one place for this post to appear." };
+
+  // Wing coordinators can only post into their own wing sections.
+  if (user.role === "wing-lead") {
+    const outside = input.placements.some((pl) => {
+      const wing = WING_PLACEMENTS[pl];
+      return !wing || !canManageWing(user, wing);
+    });
+    if (outside)
+      return {
+        ok: false,
+        message: "Wing coordinators can only publish posts to their own wing pages. Site-wide placements need an executive.",
+      };
+  }
+
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (input.id) {
+        const idx = db.posts.findIndex((p) => p.id === input.id);
+        if (idx >= 0) db.posts[idx] = { ...db.posts[idx], ...input, id: input.id };
+      } else {
+        db.posts.unshift({
+          ...input,
+          id: newId("post"),
+          createdAt: new Date().toISOString(),
+        });
+      }
+    });
+    revalidatePath("/");
+    revalidatePath("/admin/posts");
+    return { ok: true, message: "Post saved." };
+  }
 
   const supabase = await createClient();
   const row = {
@@ -267,8 +457,14 @@ export async function savePost(input: PostInput): Promise<ActionResult> {
 
 export async function deletePost(id: string): Promise<ActionResult> {
   await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Post removed (demo mode)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.posts = db.posts.filter((p) => p.id !== id);
+    });
+    revalidatePath("/");
+    revalidatePath("/admin/posts");
+    return { ok: true, message: "Post removed." };
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("posts").delete().eq("id", id);
   if (error) return { ok: false, message: "Could not remove the post." };
@@ -279,8 +475,14 @@ export async function deletePost(id: string): Promise<ActionResult> {
 
 export async function saveSiteContent(content: SiteContent): Promise<ActionResult> {
   await guard("executive");
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Site content saved (demo mode, changes are not persisted)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.siteContent = content;
+    });
+    revalidatePath("/");
+    revalidatePath("/contact");
+    return { ok: true, message: "Site content saved. The public site is updated." };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -294,9 +496,19 @@ export async function saveSiteContent(content: SiteContent): Promise<ActionResul
 }
 
 export async function saveWing(wing: Wing): Promise<ActionResult> {
-  await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Wing saved (demo mode, changes are not persisted)." };
+  const user = await guard();
+  if (user.role === "wing-lead" && !canManageWing(user, wing.slug as WingSlug))
+    return { ok: false, message: "You can only edit your own wing." };
+
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      const idx = db.wings.findIndex((w) => w.slug === wing.slug);
+      if (idx >= 0) db.wings[idx] = wing;
+    });
+    revalidatePath("/");
+    revalidatePath("/wings");
+    return { ok: true, message: "Wing saved. The public site is updated." };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -306,6 +518,8 @@ export async function saveWing(wing: Wing): Promise<ActionResult> {
       tagline: wing.tagline,
       description: wing.description,
       activities: wing.activities,
+      image_url: wing.imageUrl,
+      subgroups: wing.subgroups,
     })
     .eq("slug", wing.slug);
   if (error) return { ok: false, message: "Could not save the wing." };
@@ -317,8 +531,14 @@ export async function saveWing(wing: Wing): Promise<ActionResult> {
 
 export async function deleteResource(id: string): Promise<ActionResult> {
   await guard();
-  if (!isSupabaseConfigured)
-    return { ok: true, message: "Resource removed (demo mode)." };
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.resources = db.resources.filter((r) => r.id !== id);
+    });
+    revalidatePath("/admin/resources");
+    revalidatePath("/library/resources");
+    return { ok: true, message: "Resource removed." };
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("resources").delete().eq("id", id);
   if (error) return { ok: false, message: "Could not remove the resource." };
@@ -505,3 +725,215 @@ export async function deleteBhajan(id: string): Promise<ActionResult> {
   return { ok: true, message: "Bhajan deleted successfully." };
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Physical library books                                              */
+/* ------------------------------------------------------------------ */
+
+export async function saveBook(input: {
+  id?: string;
+  title: string;
+  author: string;
+  category: string;
+  description: string;
+  available: boolean;
+}): Promise<ActionResult> {
+  await guard();
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (input.id) {
+        const idx = db.books.findIndex((b) => b.id === input.id);
+        if (idx >= 0) db.books[idx] = { ...db.books[idx], ...input, id: input.id };
+      } else {
+        db.books.unshift({
+          ...input,
+          id: newId("bk"),
+          createdAt: new Date().toISOString(),
+        });
+      }
+    });
+    revalidatePath("/library/books");
+    revalidatePath("/admin/books");
+    return { ok: true, message: "Book saved." };
+  }
+  const supabase = await createClient();
+  const row = {
+    title: input.title,
+    author: input.author,
+    category: input.category,
+    description: input.description,
+    available: input.available,
+  };
+  const { error } = input.id
+    ? await supabase.from("books").update(row).eq("id", input.id)
+    : await supabase.from("books").insert(row);
+  if (error) return { ok: false, message: "Could not save the book." };
+  revalidatePath("/library/books");
+  revalidatePath("/admin/books");
+  return { ok: true, message: "Book saved." };
+}
+
+export async function deleteBook(id: string): Promise<ActionResult> {
+  await guard();
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.books = db.books.filter((b) => b.id !== id);
+    });
+    revalidatePath("/library/books");
+    revalidatePath("/admin/books");
+    return { ok: true, message: "Book removed." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("books").delete().eq("id", id);
+  if (error) return { ok: false, message: "Could not remove the book." };
+  revalidatePath("/library/books");
+  revalidatePath("/admin/books");
+  return { ok: true, message: "Book removed." };
+}
+
+/* ------------------------------------------------------------------ */
+/* Gallery albums (Google Photos workflow)                             */
+/* ------------------------------------------------------------------ */
+
+export async function saveAlbum(input: {
+  id?: string;
+  title: string;
+  description: string;
+  coverUrl: string;
+  date: string;
+  googlePhotosUrl: string | null;
+}): Promise<ActionResult> {
+  await guard();
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (input.id) {
+        const idx = db.albums.findIndex((a) => a.id === input.id);
+        if (idx >= 0) db.albums[idx] = { ...db.albums[idx], ...input, id: input.id };
+      } else {
+        db.albums.unshift({
+          ...input,
+          id: newId("al"),
+          eventId: null,
+          photos: [],
+        });
+      }
+    });
+    revalidatePath("/gallery");
+    revalidatePath("/admin/gallery");
+    return { ok: true, message: "Album published." };
+  }
+  const supabase = await createClient();
+  const row = {
+    title: input.title,
+    description: input.description,
+    cover_url: input.coverUrl,
+    date: input.date,
+    google_photos_url: input.googlePhotosUrl,
+  };
+  const { error } = input.id
+    ? await supabase.from("albums").update(row).eq("id", input.id)
+    : await supabase.from("albums").insert(row);
+  if (error) return { ok: false, message: "Could not save the album." };
+  revalidatePath("/gallery");
+  revalidatePath("/admin/gallery");
+  return { ok: true, message: "Album published." };
+}
+
+export async function deleteAlbum(id: string): Promise<ActionResult> {
+  await guard();
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.albums = db.albums.filter((a) => a.id !== id);
+    });
+    revalidatePath("/gallery");
+    revalidatePath("/admin/gallery");
+    return { ok: true, message: "Album removed." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("albums").delete().eq("id", id);
+  if (error) return { ok: false, message: "Could not remove the album." };
+  revalidatePath("/gallery");
+  revalidatePath("/admin/gallery");
+  return { ok: true, message: "Album removed." };
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-wing access requests                                          */
+/* ------------------------------------------------------------------ */
+
+export async function requestWingAccess(wing: WingSlug): Promise<ActionResult> {
+  const user = await guard(); // wing-lead and up can ask
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.accessRequests.unshift({
+        id: newId("ar"),
+        requesterId: user.id,
+        requesterName: user.fullName,
+        wing,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      });
+    });
+    revalidatePath("/admin/coordination");
+    return { ok: true, message: "Request sent. A coordinator will review it." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("access_requests").insert({
+    requester_id: user.id,
+    wing,
+    status: "pending",
+  });
+  if (error) return { ok: false, message: "Could not send the request." };
+  revalidatePath("/admin/coordination");
+  return { ok: true, message: "Request sent. A coordinator will review it." };
+}
+
+export async function resolveWingAccess(
+  requestId: string,
+  approve: boolean
+): Promise<ActionResult> {
+  await guard("executive");
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      const req = db.accessRequests.find((r) => r.id === requestId);
+      if (!req) return;
+      req.status = approve ? "approved" : "denied";
+      if (approve) {
+        const profile = db.profiles.find((p) => p.id === req.requesterId);
+        if (profile && !profile.extraWings.includes(req.wing))
+          profile.extraWings.push(req.wing);
+      }
+    });
+    revalidatePath("/admin/coordination");
+    return { ok: true, message: approve ? "Access granted." : "Request declined." };
+  }
+  const supabase = await createClient();
+  const { data: req } = await supabase
+    .from("access_requests")
+    .select("requester_id, wing")
+    .eq("id", requestId)
+    .single();
+  if (!req) return { ok: false, message: "Request not found." };
+
+  const { error } = await supabase
+    .from("access_requests")
+    .update({ status: approve ? "approved" : "denied" })
+    .eq("id", requestId);
+  if (error) return { ok: false, message: "Could not update the request." };
+
+  if (approve) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("extra_wings")
+      .eq("id", req.requester_id)
+      .single();
+    const extra = new Set<string>(profile?.extra_wings ?? []);
+    extra.add(req.wing);
+    await supabase
+      .from("profiles")
+      .update({ extra_wings: [...extra] })
+      .eq("id", req.requester_id);
+  }
+  revalidatePath("/admin/coordination");
+  return { ok: true, message: approve ? "Access granted." : "Request declined." };
+}

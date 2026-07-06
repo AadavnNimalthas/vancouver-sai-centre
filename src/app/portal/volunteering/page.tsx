@@ -14,7 +14,12 @@ export default async function VolunteeringPage() {
     getEvents(),
     getRegistrationsForUser(user.id),
   ]);
-  const mySignups = registrations.filter((r) => r.kind === "volunteer");
+  const nowDate = new Date();
+  const mySignups = registrations.filter(
+    (r) =>
+      r.kind === "volunteer" &&
+      (!r.eventStartsAt || new Date(r.eventStartsAt) >= nowDate)
+  );
   const signedUpEventIds = new Set(mySignups.map((r) => r.eventId));
   const opportunities = upcomingOccurrences(events, new Date(), 20).filter(
     (o) => o.event.volunteerSignupEnabled && !signedUpEventIds.has(o.event.id)

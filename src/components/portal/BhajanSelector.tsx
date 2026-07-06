@@ -264,7 +264,7 @@ export function BhajanSelector({
                       {filteredList.length === 0 ? (
                         <div className="py-12 text-center">
                           <p className="text-sm text-ink-soft">No matching bhajans found.</p>
-                          <p className="text-xs text-ink-faint mt-1">If the bhajan doesn't exist, suggest it below.</p>
+                          <p className="text-xs text-ink-faint mt-1">If the bhajan doesn&rsquo;t exist, suggest it below.</p>
                         </div>
                       ) : (
                         filteredList.map((b) => (
@@ -328,7 +328,7 @@ export function BhajanSelector({
                       </div>
                       <div>
                         <label className="label">Tempo *</label>
-                        <select className="field" value={tempo} onChange={(e: any) => setTempo(e.target.value)} disabled={pending}>
+                        <select className="field" value={tempo} onChange={(e) => setTempo(e.target.value as "slow" | "medium" | "fast")} disabled={pending}>
                           <option value="slow">Slow</option>
                           <option value="medium">Medium</option>
                           <option value="fast">Fast</option>
@@ -354,7 +354,7 @@ export function BhajanSelector({
                 {suggestMode === "import" && (
                   <SaiRhythmsImporter
                     onClose={() => setSuggestMode("none")}
-                    onSuccess={(msg) => {
+                    onSuccess={() => {
                       // We handle auto-selection inside success callback by fetching latest suggested bhajans
                       // In this component, SaiRhythmsImporter will suggest the bhajan and trigger onSuccess.
                       // Since we mock it in SaiRhythmsImporter.tsx, it'll run revalidate.

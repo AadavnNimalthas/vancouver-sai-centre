@@ -9,10 +9,13 @@ const LINKS = [
   { href: "/admin/events", label: "Events" },
   { href: "/admin/forms", label: "Forms" },
   { href: "/admin/bhajans", label: "Bhajans" },
+  { href: "/admin/gallery", label: "Gallery" },
+  { href: "/admin/resources", label: "Resources" },
+  { href: "/admin/books", label: "Books" },
   { href: "/admin/site", label: "Site content" },
+  { href: "/admin/coordination", label: "Coordination" },
   { href: "/admin/notifications", label: "Notifications" },
   { href: "/admin/users", label: "Members" },
-  { href: "/admin/resources", label: "Resources" },
 ];
 
 export function AdminNav() {

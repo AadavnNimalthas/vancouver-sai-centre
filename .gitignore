@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local CMS database (development without Supabase)
+.local-db.json
+src/lib/demo-db-store.json

@@ -36,7 +36,7 @@ export default async function HomePage() {
   const now = new Date();
   const upcoming = upcomingOccurrences(events, now, 5);
   const monthOccurrences = expandOccurrences(events, startOfMonth(now), endOfMonth(now));
-  const galleryPhotos = albums.flatMap((a) => a.photos).slice(0, 6);
+  const galleryAlbums = albums.slice(0, 6);
   const visibleContacts = site.contacts.filter((c) => c.visible);
 
   return (
@@ -48,11 +48,9 @@ export default async function HomePage() {
         ) : (
           <div className="mx-auto max-w-3xl px-5 py-10 text-center sm:px-8">
             <h1 className="font-display text-4xl text-ink sm:text-5xl">
-              Vancouver Sai Centre
+              {site.heroTitle}
             </h1>
-            <p className="mt-3 text-lg text-ink-soft">
-              Sunday bhajans at 5 pm. Everyone is welcome.
-            </p>
+            <p className="mt-3 text-lg text-ink-soft">{site.heroSubtitle}</p>
             <div className="mx-auto mt-6 max-w-md">
               <AdminSetupPrompt
                 isAdmin={isAdmin}
@@ -91,22 +89,14 @@ export default async function HomePage() {
             <div className="card p-7">
               <h3 className="font-display text-xl text-ink">When we meet</h3>
               <ul className="mt-4 space-y-3 text-[0.925rem] text-ink-soft">
-                <li>
-                  <span className="font-semibold text-ink">Sundays, 3:00 pm</span>
-                  <br />SSE classes for children
-                </li>
-                <li>
-                  <span className="font-semibold text-ink">Sundays, 5:00 pm</span>
-                  <br />Bhajans and satsang
-                </li>
-                <li>
-                  <span className="font-semibold text-ink">Wednesdays, 7:30 pm</span>
-                  <br />Study circle
-                </li>
-                <li>
-                  <span className="font-semibold text-ink">Fridays, 7:00 pm</span>
-                  <br />Young adults
-                </li>
+                {site.whenMeet.map((m) => (
+                  <li key={m.label}>
+                    <span className="font-semibold text-ink">{m.time}</span>
+                    <br />
+                    {m.label}
+                  </li>
+                ))}
+                {site.whenMeet.length === 0 && <li>Meeting times are being updated.</li>}
               </ul>
               <p className="mt-5 border-t border-line pt-4 text-[0.875rem] text-ink-soft">
                 {site.address}
@@ -136,6 +126,21 @@ export default async function HomePage() {
             {upcoming.map((occ) => (
               <EventRow key={occ.key} occurrence={occ} />
             ))}
+            {upcoming.length === 0 && (
+              <div className="py-8">
+                <p className="text-ink-soft">
+                  Nothing is scheduled at the moment. Check back soon.
+                </p>
+                <div className="mt-4 max-w-md">
+                  <AdminSetupPrompt
+                    isAdmin={isAdmin}
+                    title="No events yet"
+                    detail="Create your first event, for example the weekly bhajans, and publish it."
+                    href="/admin/events/new"
+                  />
+                </div>
+              </div>
+            )}
           </Reveal>
         </div>
       </section>
@@ -145,16 +150,12 @@ export default async function HomePage() {
         <Reveal className="mx-auto max-w-2xl text-center">
           <h2 className="eyebrow">Values we practise</h2>
           <p className="mt-4 font-display text-3xl text-ink sm:text-4xl">
-            Love, truth, peace, right conduct, non-violence
+            {site.values.map((v) => v.name).join(", ")}
           </p>
-          <p className="mt-4 text-ink-soft">
-            Everything at the centre, from bhajans to children&rsquo;s classes
-            to service projects, comes back to these five values. Touch a bead
-            to read about one.
-          </p>
+          <p className="mt-4 text-ink-soft">{site.valuesIntro}</p>
         </Reveal>
         <Reveal delay={0.15} className="mt-12">
-          <ValuesStrand />
+          <ValuesStrand values={site.values} />
         </Reveal>
       </section>
 
@@ -190,9 +191,11 @@ export default async function HomePage() {
                   <p className="mt-3 text-[0.925rem] leading-relaxed text-ink-soft">
                     {wing.description.split(". ")[0]}.
                   </p>
-                  <p className="mt-4 text-[0.8rem] text-ink-faint">
-                    {wing.activities.slice(0, 2).join(" · ")}
-                  </p>
+                  {wing.activities.length > 0 && (
+                    <p className="mt-4 text-[0.8rem] text-ink-faint">
+                      {wing.activities.slice(0, 2).join(" · ")}
+                    </p>
+                  )}
                 </Link>
               </RevealItem>
             ))}
@@ -211,14 +214,6 @@ export default async function HomePage() {
                 <p key={i}>{p}</p>
               ))}
             </div>
-            {!site.babaBody && (
-              <AdminSetupPrompt
-                isAdmin={isAdmin}
-                title="This section has no text yet"
-                detail="Write the introduction to Sri Sathya Sai Baba in Site content."
-                href="/admin/site"
-              />
-            )}
           </Reveal>
           <Reveal delay={0.1}>
             <h2 className="eyebrow eyebrow-rule">The wider organization</h2>
@@ -243,12 +238,17 @@ export default async function HomePage() {
           <Reveal delay={0.1}>
             <h2 className="eyebrow eyebrow-rule mb-5">News and announcements</h2>
             {news.length === 0 && (
-              <AdminSetupPrompt
-                isAdmin={isAdmin}
-                title="No announcements yet"
-                detail="Create a post and place it in Latest announcements."
-                href="/admin/posts"
-              />
+              <>
+                <p className="text-ink-soft">No announcements right now.</p>
+                <div className="mt-4 max-w-md">
+                  <AdminSetupPrompt
+                    isAdmin={isAdmin}
+                    title="No announcements yet"
+                    detail="Create a post and place it in Latest announcements."
+                    href="/admin/posts"
+                  />
+                </div>
+              </>
             )}
             <div className="divide-y divide-line border-t border-line">
               {news.slice(0, 4).map((post) => (
@@ -263,7 +263,10 @@ export default async function HomePage() {
                     {post.description}
                   </p>
                   {post.ctaLabel && post.ctaUrl && (
-                    <Link href={post.ctaUrl} className="link-editorial mt-2 inline-block text-[0.875rem]">
+                    <Link
+                      href={post.ctaUrl}
+                      className="link-editorial mt-2 inline-block text-[0.875rem]"
+                    >
                       {post.ctaLabel}
                     </Link>
                   )}
@@ -275,38 +278,61 @@ export default async function HomePage() {
       </section>
 
       {/* ── Photos ─────────────────────────────────────── */}
-      <section className="bg-sand">
-        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-          <Reveal>
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h2 className="eyebrow eyebrow-rule">Photos</h2>
-                <p className="mt-3 font-display text-3xl text-ink sm:text-4xl">
-                  From centre life
-                </p>
-              </div>
-              <Link href="/gallery" className="link-editorial text-[0.95rem]">
-                See all albums
-              </Link>
-            </div>
-          </Reveal>
-          <RevealGroup className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3" stagger={0.06}>
-            {galleryPhotos.map((photo, i) => (
-              <RevealItem key={photo.id} className={i === 0 ? "col-span-2 row-span-2" : ""}>
-                <Link href="/gallery" className="group block h-full overflow-hidden rounded-lg">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photo.url}
-                    alt={photo.caption}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
-                    loading="lazy"
-                  />
+      {(galleryAlbums.length > 0 || isAdmin) && (
+        <section className="bg-sand">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+            <Reveal>
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="eyebrow eyebrow-rule">Photos</h2>
+                  <p className="mt-3 font-display text-3xl text-ink sm:text-4xl">
+                    From centre life
+                  </p>
+                </div>
+                <Link href="/gallery" className="link-editorial text-[0.95rem]">
+                  See all albums
                 </Link>
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        </div>
-      </section>
+              </div>
+            </Reveal>
+            {galleryAlbums.length === 0 ? (
+              <div className="mt-8 max-w-md">
+                <AdminSetupPrompt
+                  isAdmin={isAdmin}
+                  title="No photo albums yet"
+                  detail="Publish a Google Photos album from the Gallery console."
+                  href="/admin/gallery"
+                />
+              </div>
+            ) : (
+              <RevealGroup
+                className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3"
+                stagger={0.06}
+              >
+                {galleryAlbums.map((album, i) => (
+                  <RevealItem key={album.id} className={i === 0 ? "col-span-2 row-span-2" : ""}>
+                    <Link
+                      href={album.googlePhotosUrl ?? `/gallery/${album.id}`}
+                      target={album.googlePhotosUrl ? "_blank" : undefined}
+                      className="group relative block h-full overflow-hidden rounded-lg"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={album.coverUrl}
+                        alt={album.title}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                        loading="lazy"
+                      />
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent p-4 font-display text-lg text-cream">
+                        {album.title}
+                      </span>
+                    </Link>
+                  </RevealItem>
+                ))}
+              </RevealGroup>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Contacts ───────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
@@ -318,10 +344,14 @@ export default async function HomePage() {
           <div className="mt-8 max-w-xl">
             <p className="text-ink-soft">
               Write to us at{" "}
-              <a href="mailto:vancouversaicentre@gmail.com" className="link-editorial">
-                vancouversaicentre@gmail.com
+              <a href={`mailto:${site.contactEmail}`} className="link-editorial">
+                {site.contactEmail}
               </a>{" "}
-              or use the <Link href="/contact" className="link-editorial">contact form</Link>.
+              or use the{" "}
+              <Link href="/contact" className="link-editorial">
+                contact form
+              </Link>
+              .
             </p>
             <div className="mt-5">
               <AdminSetupPrompt
@@ -344,9 +374,7 @@ export default async function HomePage() {
                       {c.email}
                     </a>
                   )}
-                  {c.phone && (
-                    <p className="mt-1 text-[0.875rem] text-ink-soft">{c.phone}</p>
-                  )}
+                  {c.phone && <p className="mt-1 text-[0.875rem] text-ink-soft">{c.phone}</p>}
                 </div>
               </RevealItem>
             ))}
@@ -361,11 +389,6 @@ export default async function HomePage() {
             <h2 className="eyebrow eyebrow-rule">Around the province</h2>
             <p className="mt-3 font-display text-3xl text-ink sm:text-4xl">
               Other Sai centres in BC
-            </p>
-            <p className="mt-3 max-w-xl text-ink-soft">
-              If you live outside Vancouver, one of these centres may be closer
-              to you. All centres follow the same program of devotion,
-              education, and service.
             </p>
           </Reveal>
           {site.bcGroups.length === 0 ? (

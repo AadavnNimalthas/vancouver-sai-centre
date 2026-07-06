@@ -1,26 +1,16 @@
 import "server-only";
 import { isSupabaseConfigured } from "./config";
-import {
-  demoAlbums,
-  demoAnnouncements,
-  demoBhajans,
-  demoEvents,
-  demoForms,
-  demoPosts,
-  demoProfiles,
-  demoRegistrations,
-  demoResources,
-  demoSiteContent,
-  demoWings,
-} from "./demo-data";
+import { defaultSiteContent, defaultWings } from "./demo-data";
 import { getDemoDb } from "./demo-db-store";
 import { createClient } from "./supabase/server";
 import type {
+  AccessRequest,
   Album,
   Announcement,
   Bhajan,
   BhajanSignUpForm,
   BhajanSubmission,
+  Book,
   Post,
   PostPlacement,
   Profile,
@@ -31,7 +21,6 @@ import type {
   SiteContent,
   Wing,
 } from "./types";
-
 
 /* ------------------------------------------------------------------ */
 /* Row mappers: snake_case DB rows → app types                         */
@@ -70,6 +59,8 @@ function mapProfile(row: any): Profile {
     interests: row.interests ?? [],
     joinedAt: row.created_at,
     avatarUrl: row.avatar_url,
+    wing: row.wing ?? null,
+    extraWings: row.extra_wings ?? [],
   };
 }
 
@@ -84,8 +75,8 @@ function mapRegistration(row: any): Registration {
     createdAt: row.created_at,
     eventTitle: row.events?.title,
     eventStartsAt: row.events?.starts_at,
-    userName: row.profiles?.full_name,
-    userEmail: row.profiles?.email,
+    userName: row.profiles?.full_name ?? row.guest_name,
+    userEmail: row.profiles?.email ?? row.guest_email,
   };
 }
 
@@ -110,6 +101,18 @@ function mapResource(row: any): Resource {
     url: row.url,
     tags: row.tags ?? [],
     membersOnly: row.members_only,
+    createdAt: row.created_at,
+  };
+}
+
+function mapBook(row: any): Book {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author ?? "",
+    category: row.category ?? "",
+    description: row.description ?? "",
+    available: row.available ?? true,
     createdAt: row.created_at,
   };
 }
@@ -161,7 +164,6 @@ function mapBhajanSubmission(row: any): BhajanSubmission {
   };
 }
 
-
 function mapAlbum(row: any): Album {
   return {
     id: row.id,
@@ -170,6 +172,7 @@ function mapAlbum(row: any): Album {
     eventId: row.event_id,
     coverUrl: row.cover_url,
     date: row.date,
+    googlePhotosUrl: row.google_photos_url ?? null,
     photos: (row.photos ?? []).map((p: any) => ({
       id: p.id,
       url: p.url,
@@ -192,14 +195,58 @@ function mapAnnouncement(row: any): Announcement {
     openRate: row.open_rate,
   };
 }
+
+function mapPost(row: any): Post {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? "",
+    body: row.body ?? "",
+    imageUrl: row.image_url,
+    videoUrl: row.video_url,
+    instagramUrl: row.instagram_url,
+    ctaLabel: row.cta_label,
+    ctaUrl: row.cta_url,
+    placements: row.placements ?? [],
+    membersOnly: row.members_only ?? false,
+    published: row.published,
+    createdAt: row.created_at,
+  };
+}
+
+function mapWing(row: any): Wing {
+  return {
+    slug: row.slug,
+    name: row.name,
+    tagline: row.tagline ?? "",
+    description: row.description ?? "",
+    activities: row.activities ?? [],
+    imageUrl: row.image_url ?? null,
+    subgroups: row.subgroups ?? [],
+  };
+}
+
+function mapAccessRequest(row: any): AccessRequest {
+  return {
+    id: row.id,
+    requesterId: row.requester_id,
+    requesterName: row.profiles?.full_name ?? "",
+    wing: row.wing,
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* ------------------------------------------------------------------ */
-/* Reads (demo fallback when Supabase is not configured)               */
+/* Events                                                              */
 /* ------------------------------------------------------------------ */
 
 export async function getEvents(): Promise<SaiEvent[]> {
-  if (!isSupabaseConfigured) return demoEvents;
+  if (!isSupabaseConfigured)
+    return getDemoDb()
+      .events.filter((e) => e.published)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const supabase = await createClient();
   const { data } = await supabase
     .from("events")
@@ -210,53 +257,66 @@ export async function getEvents(): Promise<SaiEvent[]> {
 }
 
 export async function getAllEvents(): Promise<SaiEvent[]> {
-  if (!isSupabaseConfigured) return demoEvents;
+  if (!isSupabaseConfigured)
+    return getDemoDb().events.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const supabase = await createClient();
   const { data } = await supabase.from("events").select("*").order("starts_at");
   return (data ?? []).map(mapEvent);
 }
 
 export async function getEventBySlug(slug: string): Promise<SaiEvent | null> {
-  if (!isSupabaseConfigured) return demoEvents.find((e) => e.slug === slug) ?? null;
+  if (!isSupabaseConfigured)
+    return getDemoDb().events.find((e) => e.slug === slug) ?? null;
   const supabase = await createClient();
   const { data } = await supabase.from("events").select("*").eq("slug", slug).single();
   return data ? mapEvent(data) : null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Forms                                                               */
+/* ------------------------------------------------------------------ */
+
 export async function getForm(id: string): Promise<SaiForm | null> {
-  if (!isSupabaseConfigured) return demoForms.find((f) => f.id === id) ?? null;
+  if (!isSupabaseConfigured) return getDemoDb().forms.find((f) => f.id === id) ?? null;
   const supabase = await createClient();
   const { data } = await supabase.from("forms").select("*").eq("id", id).single();
   return data ? mapForm(data) : null;
 }
 
 export async function getForms(): Promise<SaiForm[]> {
-  if (!isSupabaseConfigured) return demoForms;
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    return db.forms.map((f) => ({
+      ...f,
+      attachedEventIds: db.events.filter((e) => e.formId === f.id).map((e) => e.id),
+    }));
+  }
   const supabase = await createClient();
-  const { data } = await supabase.from("forms").select("*").order("updated_at", { ascending: false });
+  const { data } = await supabase
+    .from("forms")
+    .select("*")
+    .order("updated_at", { ascending: false });
   return (data ?? []).map(mapForm);
 }
 
+/* ------------------------------------------------------------------ */
+/* Bhajans                                                             */
+/* ------------------------------------------------------------------ */
+
 export async function getBhajans(onlyApproved = true): Promise<Bhajan[]> {
   if (!isSupabaseConfigured) {
-    const db = getDemoDb();
-    const list = db.bhajans;
+    const list = getDemoDb().bhajans;
     return onlyApproved ? list.filter((b) => b.status === "approved") : list;
   }
   const supabase = await createClient();
   let query = supabase.from("bhajans").select("*");
-  if (onlyApproved) {
-    query = query.eq("status", "approved");
-  }
+  if (onlyApproved) query = query.eq("status", "approved");
   const { data } = await query.order("title");
   return (data ?? []).map(mapBhajan);
 }
 
 export async function getBhajan(id: string): Promise<Bhajan | null> {
-  if (!isSupabaseConfigured) {
-    const db = getDemoDb();
-    return db.bhajans.find((b) => b.id === id) ?? null;
-  }
+  if (!isSupabaseConfigured) return getDemoDb().bhajans.find((b) => b.id === id) ?? null;
   const supabase = await createClient();
   const { data } = await supabase.from("bhajans").select("*").eq("id", id).single();
   return data ? mapBhajan(data) : null;
@@ -264,10 +324,8 @@ export async function getBhajan(id: string): Promise<Bhajan | null> {
 
 export async function getBhajanCategories(): Promise<string[]> {
   if (!isSupabaseConfigured) {
-    const db = getDemoDb();
-    const approved = db.bhajans.filter((b) => b.status === "approved");
-    const categories = approved.map((b) => b.category).filter(Boolean);
-    return Array.from(new Set(categories)).sort();
+    const approved = getDemoDb().bhajans.filter((b) => b.status === "approved");
+    return Array.from(new Set(approved.map((b) => b.category).filter(Boolean))).sort();
   }
   const supabase = await createClient();
   const { data } = await supabase
@@ -280,34 +338,33 @@ export async function getBhajanCategories(): Promise<string[]> {
 
 export async function getBhajanSignUpForms(onlyPublished = true): Promise<BhajanSignUpForm[]> {
   if (!isSupabaseConfigured) {
-    const db = getDemoDb();
-    const list = db.signupForms;
+    const list = getDemoDb().signupForms;
     return onlyPublished ? list.filter((f) => f.published) : list;
   }
   const supabase = await createClient();
   let query = supabase.from("bhajan_signup_forms").select("*");
-  if (onlyPublished) {
-    query = query.eq("published", true);
-  }
+  if (onlyPublished) query = query.eq("published", true);
   const { data } = await query.order("close_date", { ascending: true });
   return (data ?? []).map(mapBhajanSignUpForm);
 }
 
 export async function getBhajanSignUpForm(id: string): Promise<BhajanSignUpForm | null> {
-  if (!isSupabaseConfigured) {
-    const db = getDemoDb();
-    return db.signupForms.find((f) => f.id === id) ?? null;
-  }
+  if (!isSupabaseConfigured)
+    return getDemoDb().signupForms.find((f) => f.id === id) ?? null;
   const supabase = await createClient();
-  const { data } = await supabase.from("bhajan_signup_forms").select("*").eq("id", id).single();
+  const { data } = await supabase
+    .from("bhajan_signup_forms")
+    .select("*")
+    .eq("id", id)
+    .single();
   return data ? mapBhajanSignUpForm(data) : null;
 }
 
 export async function getFavoriteBhajanIds(userId: string): Promise<string[]> {
-  if (!isSupabaseConfigured) {
-    const db = getDemoDb();
-    return db.favorites.filter((f) => f.userId === userId).map((f) => f.bhajanId);
-  }
+  if (!isSupabaseConfigured)
+    return getDemoDb()
+      .favorites.filter((f) => f.userId === userId)
+      .map((f) => f.bhajanId);
   const supabase = await createClient();
   const { data } = await supabase
     .from("member_bhajan_favorites")
@@ -319,19 +376,20 @@ export async function getFavoriteBhajanIds(userId: string): Promise<string[]> {
 export async function getBhajanSubmissions(formId: string): Promise<BhajanSubmission[]> {
   if (!isSupabaseConfigured) {
     const db = getDemoDb();
-    const list = db.submissions.filter((s) => s.formId === formId);
-    return list.map((sub) => {
-      const profile = demoProfiles.find((p) => p.id === sub.userId);
-      const bhajans = sub.bhajanIds
-        .map((bid) => db.bhajans.find((b) => b.id === bid))
-        .filter(Boolean) as Bhajan[];
-      return {
-        ...sub,
-        userName: profile?.fullName ?? "Demo Member",
-        userEmail: profile?.email ?? "member@example.com",
-        bhajans,
-      };
-    });
+    return db.submissions
+      .filter((s) => s.formId === formId)
+      .map((sub) => {
+        const profile = db.profiles.find((p) => p.id === sub.userId);
+        const bhajans = sub.bhajanIds
+          .map((bid) => db.bhajans.find((b) => b.id === bid))
+          .filter(Boolean) as Bhajan[];
+        return {
+          ...sub,
+          userName: profile?.fullName ?? "Member",
+          userEmail: profile?.email ?? "",
+          bhajans,
+        };
+      });
   }
   const supabase = await createClient();
   const { data } = await supabase
@@ -341,7 +399,6 @@ export async function getBhajanSubmissions(formId: string): Promise<BhajanSubmis
     .order("created_at", { ascending: false });
 
   const submissions = (data ?? []).map(mapBhajanSubmission);
-  
   const allBhajanIds = Array.from(new Set(submissions.flatMap((s) => s.bhajanIds)));
   if (allBhajanIds.length > 0) {
     const { data: bData } = await supabase.from("bhajans").select("*").in("id", allBhajanIds);
@@ -356,13 +413,14 @@ export async function getBhajanSubmissions(formId: string): Promise<BhajanSubmis
 export async function getBhajanSubmissionsForUser(userId: string): Promise<BhajanSubmission[]> {
   if (!isSupabaseConfigured) {
     const db = getDemoDb();
-    const list = db.submissions.filter((s) => s.userId === userId);
-    return list.map((sub) => ({
-      ...sub,
-      bhajans: sub.bhajanIds
-        .map((bid) => db.bhajans.find((b) => b.id === bid))
-        .filter(Boolean) as Bhajan[],
-    }));
+    return db.submissions
+      .filter((s) => s.userId === userId)
+      .map((sub) => ({
+        ...sub,
+        bhajans: sub.bhajanIds
+          .map((bid) => db.bhajans.find((b) => b.id === bid))
+          .filter(Boolean) as Bhajan[],
+      }));
   }
   const supabase = await createClient();
   const { data } = await supabase
@@ -392,22 +450,20 @@ export async function getMyBhajans(userId: string): Promise<{
     const db = getDemoDb();
     const favIds = db.favorites.filter((f) => f.userId === userId).map((f) => f.bhajanId);
     const favorites = db.bhajans.filter((b) => favIds.includes(b.id));
-    
     const userSubs = db.submissions.filter((s) => s.userId === userId);
     const recentIds = Array.from(new Set(userSubs.flatMap((s) => s.bhajanIds)));
     const recentlyUsed = db.bhajans.filter((b) => recentIds.includes(b.id));
-
     const submitted = db.bhajans.filter((b) => b.createdBy === userId);
-
     return { favorites, recentlyUsed, submitted };
   }
 
   const supabase = await createClient();
-  
+
   const { data: favData } = await supabase
     .from("member_bhajan_favorites")
     .select("bhajans(*)")
     .eq("user_id", userId);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const favorites = (favData ?? []).map((row: any) => mapBhajan(row.bhajans)).filter(Boolean);
 
   const { data: subData } = await supabase
@@ -417,13 +473,10 @@ export async function getMyBhajans(userId: string): Promise<{
     .order("created_at", { ascending: false })
     .limit(10);
   const recentIds = Array.from(new Set((subData ?? []).flatMap((row) => row.bhajan_ids)));
-  
+
   let recentlyUsed: Bhajan[] = [];
   if (recentIds.length > 0) {
-    const { data: recBhajans } = await supabase
-      .from("bhajans")
-      .select("*")
-      .in("id", recentIds);
+    const { data: recBhajans } = await supabase.from("bhajans").select("*").in("id", recentIds);
     recentlyUsed = (recBhajans ?? []).map(mapBhajan);
   }
 
@@ -437,16 +490,39 @@ export async function getMyBhajans(userId: string): Promise<{
   return { favorites, recentlyUsed, submitted };
 }
 
+/* ------------------------------------------------------------------ */
+/* Library: resources & books                                          */
+/* ------------------------------------------------------------------ */
 
 export async function getResources(): Promise<Resource[]> {
-  if (!isSupabaseConfigured) return demoResources;
+  if (!isSupabaseConfigured)
+    return getDemoDb().resources.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const supabase = await createClient();
-  const { data } = await supabase.from("resources").select("*").order("created_at", { ascending: false });
+  const { data } = await supabase
+    .from("resources")
+    .select("*")
+    .order("created_at", { ascending: false });
   return (data ?? []).map(mapResource);
 }
 
+export async function getBooks(): Promise<Book[]> {
+  if (!isSupabaseConfigured)
+    return getDemoDb().books.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("books")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data ?? []).map(mapBook);
+}
+
+/* ------------------------------------------------------------------ */
+/* Gallery                                                             */
+/* ------------------------------------------------------------------ */
+
 export async function getAlbums(): Promise<Album[]> {
-  if (!isSupabaseConfigured) return demoAlbums;
+  if (!isSupabaseConfigured)
+    return getDemoDb().albums.sort((a, b) => b.date.localeCompare(a.date));
   const supabase = await createClient();
   const { data } = await supabase
     .from("albums")
@@ -456,14 +532,19 @@ export async function getAlbums(): Promise<Album[]> {
 }
 
 export async function getAlbum(id: string): Promise<Album | null> {
-  if (!isSupabaseConfigured) return demoAlbums.find((a) => a.id === id) ?? null;
+  if (!isSupabaseConfigured) return getDemoDb().albums.find((a) => a.id === id) ?? null;
   const supabase = await createClient();
   const { data } = await supabase.from("albums").select("*, photos(*)").eq("id", id).single();
   return data ? mapAlbum(data) : null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Announcements, profiles, registrations                              */
+/* ------------------------------------------------------------------ */
+
 export async function getAnnouncements(): Promise<Announcement[]> {
-  if (!isSupabaseConfigured) return demoAnnouncements;
+  if (!isSupabaseConfigured)
+    return getDemoDb().announcements.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const supabase = await createClient();
   const { data } = await supabase
     .from("announcements")
@@ -473,14 +554,31 @@ export async function getAnnouncements(): Promise<Announcement[]> {
 }
 
 export async function getProfiles(): Promise<Profile[]> {
-  if (!isSupabaseConfigured) return demoProfiles;
+  if (!isSupabaseConfigured)
+    return getDemoDb().profiles.sort((a, b) => a.fullName.localeCompare(b.fullName));
   const supabase = await createClient();
   const { data } = await supabase.from("profiles").select("*").order("full_name");
   return (data ?? []).map(mapProfile);
 }
 
+function enrichLocalRegistration(r: Registration): Registration {
+  const db = getDemoDb();
+  const event = db.events.find((e) => e.id === r.eventId);
+  const profile = db.profiles.find((p) => p.id === r.userId);
+  return {
+    ...r,
+    eventTitle: event?.title ?? r.eventTitle,
+    eventStartsAt: event?.startsAt ?? r.eventStartsAt,
+    userName: profile?.fullName ?? r.userName,
+    userEmail: profile?.email ?? r.userEmail,
+  };
+}
+
 export async function getRegistrationsForUser(userId: string): Promise<Registration[]> {
-  if (!isSupabaseConfigured) return demoRegistrations.filter((r) => r.userId === userId);
+  if (!isSupabaseConfigured)
+    return getDemoDb()
+      .registrations.filter((r) => r.userId === userId)
+      .map(enrichLocalRegistration);
   const supabase = await createClient();
   const { data } = await supabase
     .from("registrations")
@@ -491,7 +589,10 @@ export async function getRegistrationsForUser(userId: string): Promise<Registrat
 }
 
 export async function getRegistrationsForEvent(eventId: string): Promise<Registration[]> {
-  if (!isSupabaseConfigured) return demoRegistrations.filter((r) => r.eventId === eventId);
+  if (!isSupabaseConfigured)
+    return getDemoDb()
+      .registrations.filter((r) => r.eventId === eventId)
+      .map(enrichLocalRegistration);
   const supabase = await createClient();
   const { data } = await supabase
     .from("registrations")
@@ -502,7 +603,8 @@ export async function getRegistrationsForEvent(eventId: string): Promise<Registr
 }
 
 export async function getAllRegistrations(): Promise<Registration[]> {
-  if (!isSupabaseConfigured) return demoRegistrations;
+  if (!isSupabaseConfigured)
+    return getDemoDb().registrations.map(enrichLocalRegistration);
   const supabase = await createClient();
   const { data } = await supabase
     .from("registrations")
@@ -511,46 +613,24 @@ export async function getAllRegistrations(): Promise<Registration[]> {
   return (data ?? []).map(mapRegistration);
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function mapPost(row: any): Post {
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description ?? "",
-    body: row.body ?? "",
-    imageUrl: row.image_url,
-    videoUrl: row.video_url,
-    instagramUrl: row.instagram_url,
-    ctaLabel: row.cta_label,
-    ctaUrl: row.cta_url,
-    placements: row.placements ?? [],
-    membersOnly: row.members_only ?? false,
-    published: row.published,
-    createdAt: row.created_at,
-  };
-}
-
-function mapWing(row: any): Wing {
-  return {
-    slug: row.slug,
-    name: row.name,
-    tagline: row.tagline ?? "",
-    description: row.description ?? "",
-    activities: row.activities ?? [],
-  };
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
+/* ------------------------------------------------------------------ */
+/* CMS: wings, posts, site content, access requests                    */
+/* ------------------------------------------------------------------ */
 
 export async function getWings(): Promise<Wing[]> {
-  if (!isSupabaseConfigured) return demoWings;
+  if (!isSupabaseConfigured) {
+    const wings = getDemoDb().wings;
+    return wings.length > 0 ? wings : defaultWings;
+  }
   const supabase = await createClient();
   const { data } = await supabase.from("wings").select("*").order("position");
-  if (!data || data.length === 0) return demoWings;
+  if (!data || data.length === 0) return defaultWings;
   return data.map(mapWing);
 }
 
 export async function getAllPosts(): Promise<Post[]> {
-  if (!isSupabaseConfigured) return demoPosts;
+  if (!isSupabaseConfigured)
+    return getDemoDb().posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const supabase = await createClient();
   const { data } = await supabase
     .from("posts")
@@ -577,18 +657,36 @@ export async function getPosts(
 }
 
 /**
- * Site content edited from the admin console (intro, Baba and SSSIO sections,
- * contact cards, other BC centres, Instagram handle). Stored as a single
- * JSON document; missing keys fall back to defaults.
+ * Site content edited from the admin console. Stored as a single JSON
+ * document; missing keys fall back to defaults so new fields appear
+ * automatically after upgrades.
  */
 export async function getSiteContent(): Promise<SiteContent> {
-  if (!isSupabaseConfigured) return demoSiteContent;
+  if (!isSupabaseConfigured)
+    return { ...defaultSiteContent, ...getDemoDb().siteContent };
   const supabase = await createClient();
   const { data } = await supabase
     .from("site_content")
     .select("content")
     .eq("id", "site")
     .single();
-  if (!data?.content) return demoSiteContent;
-  return { ...demoSiteContent, ...(data.content as Partial<SiteContent>) };
+  if (!data?.content) return defaultSiteContent;
+  return { ...defaultSiteContent, ...(data.content as Partial<SiteContent>) };
+}
+
+export async function getAccessRequests(): Promise<AccessRequest[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    return db.accessRequests.map((r) => ({
+      ...r,
+      requesterName:
+        db.profiles.find((p) => p.id === r.requesterId)?.fullName ?? r.requesterName,
+    }));
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("access_requests")
+    .select("*, profiles(full_name)")
+    .order("created_at", { ascending: false });
+  return (data ?? []).map(mapAccessRequest);
 }

@@ -105,6 +105,10 @@ export function PostManager({ posts }: { posts: Post[] }) {
         <h2 className="font-display text-2xl text-ink">
           {editingId ? "Edit post" : "New post"}
         </h2>
+        <p className="mt-1 text-[0.85rem] text-ink-soft">
+          Posts are visual first: every post needs an image, a video, or an
+          Instagram link.
+        </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="label">Title</label>

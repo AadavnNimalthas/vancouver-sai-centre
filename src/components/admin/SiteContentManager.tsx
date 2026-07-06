@@ -6,8 +6,11 @@ import {
   CONTACT_ROLES,
   type BCGroup,
   type ContactCard,
+  type MeetTime,
   type SiteContent,
+  type ValueItem,
   type Wing,
+  type WingSubgroup,
 } from "@/lib/types";
 
 export function SiteContentManager({
@@ -34,34 +37,102 @@ export function SiteContentManager({
   return (
     <div className="space-y-10">
       <Section
-        title="Homepage introduction"
-        hint="Shown in the Who we are section. Keep it plain and factual."
+        title="Homepage top"
+        hint="The title and subtitle shown when there are no featured posts, and the Who we are introduction."
       >
-        <textarea
-          className="field"
-          rows={4}
-          value={site.intro}
-          onChange={(e) => set("intro", e.target.value)}
-        />
-        <div className="mt-4">
-          <label className="label">Centre address</label>
-          <input
-            className="field"
-            value={site.address}
-            onChange={(e) => set("address", e.target.value)}
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Hero title</label>
+            <input className="field" value={site.heroTitle} onChange={(e) => set("heroTitle", e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Hero subtitle</label>
+            <input className="field" value={site.heroSubtitle} onChange={(e) => set("heroSubtitle", e.target.value)} />
+          </div>
         </div>
         <div className="mt-4">
-          <label className="label">Instagram username</label>
-          <div className="flex items-center gap-2">
-            <span className="text-ink-faint">@</span>
+          <label className="label">Who we are (introduction)</label>
+          <textarea
+            className="field"
+            rows={4}
+            value={site.intro}
+            onChange={(e) => set("intro", e.target.value)}
+          />
+        </div>
+      </Section>
+
+      <Section title="Address & contact details">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Centre address</label>
             <input
               className="field"
-              value={site.instagramHandle}
-              onChange={(e) => set("instagramHandle", e.target.value)}
+              value={site.address}
+              onChange={(e) => set("address", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Contact email</label>
+            <input
+              className="field"
+              type="email"
+              value={site.contactEmail}
+              onChange={(e) => set("contactEmail", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">Instagram username</label>
+            <div className="flex items-center gap-2">
+              <span className="text-ink-faint">@</span>
+              <input
+                className="field"
+                value={site.instagramHandle}
+                onChange={(e) => set("instagramHandle", e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="label">Google Maps embed URL (optional)</label>
+            <input
+              className="field"
+              placeholder="https://www.google.com/maps/embed?..."
+              value={site.mapEmbedUrl}
+              onChange={(e) => set("mapEmbedUrl", e.target.value)}
             />
           </div>
         </div>
+        <div className="mt-4">
+          <label className="label">Parking and arrival notes</label>
+          <textarea
+            className="field"
+            rows={2}
+            value={site.parkingInfo}
+            onChange={(e) => set("parkingInfo", e.target.value)}
+          />
+        </div>
+      </Section>
+
+      <Section
+        title="When we meet"
+        hint="The weekly schedule shown on the homepage and contact page."
+      >
+        <MeetTimesEditor times={site.whenMeet} onChange={(whenMeet) => set("whenMeet", whenMeet)} />
+      </Section>
+
+      <Section
+        title="Values we practise"
+        hint="The five values and their one-line descriptions."
+      >
+        <div className="mb-4">
+          <label className="label">Section introduction</label>
+          <textarea
+            className="field"
+            rows={2}
+            value={site.valuesIntro}
+            onChange={(e) => set("valuesIntro", e.target.value)}
+          />
+        </div>
+        <ValuesEditor values={site.values} onChange={(values) => set("values", values)} />
       </Section>
 
       <Section
@@ -372,6 +443,28 @@ function WingEditor({ wing }: { wing: Wing }) {
             }
           />
         </div>
+        <div className="sm:col-span-2">
+          <label className="label">Image URL (optional)</label>
+          <input
+            className="field"
+            placeholder="A photo for this wing's section"
+            value={draft.imageUrl ?? ""}
+            onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value || null })}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <p className="label">Subgroups & pages</p>
+        <p className="mb-3 text-[0.8rem] text-ink-faint">
+          Coordinators can add sections to their wing page here: a subgroup, a
+          program, or anything else, with optional links to a calendar, a form,
+          or resources.
+        </p>
+        <SubgroupsEditor
+          subgroups={draft.subgroups}
+          onChange={(subgroups) => setDraft({ ...draft, subgroups })}
+        />
       </div>
       <div className="mt-4 flex items-center gap-4">
         <button onClick={handleSave} disabled={pending} className="btn btn-quiet">
@@ -379,6 +472,154 @@ function WingEditor({ wing }: { wing: Wing }) {
         </button>
         {message && <p className="text-[0.85rem] text-ink-soft">{message}</p>}
       </div>
+    </div>
+  );
+}
+
+function MeetTimesEditor({
+  times,
+  onChange,
+}: {
+  times: MeetTime[];
+  onChange: (t: MeetTime[]) => void;
+}) {
+  const update = (i: number, patch: Partial<MeetTime>) =>
+    onChange(times.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+
+  return (
+    <div className="space-y-3">
+      {times.map((t, i) => (
+        <div key={i} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <input
+            className="field"
+            placeholder="Time (e.g. Sundays, 5:00 pm)"
+            aria-label="Time"
+            value={t.time}
+            onChange={(e) => update(i, { time: e.target.value })}
+          />
+          <input
+            className="field"
+            placeholder="Program (e.g. Bhajans and satsang)"
+            aria-label="Program"
+            value={t.label}
+            onChange={(e) => update(i, { label: e.target.value })}
+          />
+          <button
+            onClick={() => onChange(times.filter((_, j) => j !== i))}
+            className="text-[0.85rem] text-ink-faint underline underline-offset-4 hover:text-terra-deep"
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button onClick={() => onChange([...times, { label: "", time: "" }])} className="btn btn-quiet">
+        + Add a meeting time
+      </button>
+    </div>
+  );
+}
+
+function ValuesEditor({
+  values,
+  onChange,
+}: {
+  values: ValueItem[];
+  onChange: (v: ValueItem[]) => void;
+}) {
+  const update = (i: number, patch: Partial<ValueItem>) =>
+    onChange(values.map((v, j) => (j === i ? { ...v, ...patch } : v)));
+
+  return (
+    <div className="space-y-3">
+      {values.map((v, i) => (
+        <div key={i} className="grid gap-3 sm:grid-cols-[1fr_1fr_2fr]">
+          <input
+            className="field"
+            placeholder="Value (e.g. Love)"
+            aria-label="Value name"
+            value={v.name}
+            onChange={(e) => update(i, { name: e.target.value })}
+          />
+          <input
+            className="field"
+            placeholder="Sanskrit (e.g. Prema)"
+            aria-label="Sanskrit name"
+            value={v.sanskrit}
+            onChange={(e) => update(i, { sanskrit: e.target.value })}
+          />
+          <input
+            className="field"
+            placeholder="One-line description"
+            aria-label="Description"
+            value={v.line}
+            onChange={(e) => update(i, { line: e.target.value })}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SubgroupsEditor({
+  subgroups,
+  onChange,
+}: {
+  subgroups: WingSubgroup[];
+  onChange: (s: WingSubgroup[]) => void;
+}) {
+  const update = (id: string, patch: Partial<WingSubgroup>) =>
+    onChange(subgroups.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+
+  return (
+    <div className="space-y-3">
+      {subgroups.map((sg) => (
+        <div key={sg.id} className="space-y-2 rounded-lg border border-line bg-white-warm p-4">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              className="field"
+              placeholder="Subgroup title (e.g. SSE Group 3)"
+              aria-label="Subgroup title"
+              value={sg.title}
+              onChange={(e) => update(sg.id, { title: e.target.value })}
+            />
+            <input
+              className="field"
+              placeholder="Link (optional): label | url"
+              aria-label="Link"
+              value={sg.links[0] ? `${sg.links[0].label} | ${sg.links[0].url}` : ""}
+              onChange={(e) => {
+                const [label, url] = e.target.value.split("|").map((x) => x.trim());
+                update(sg.id, { links: label && url ? [{ label, url }] : [] });
+              }}
+            />
+          </div>
+          <textarea
+            className="field"
+            rows={2}
+            placeholder="Short description"
+            aria-label="Subgroup description"
+            value={sg.description}
+            onChange={(e) => update(sg.id, { description: e.target.value })}
+          />
+          <button
+            onClick={() => onChange(subgroups.filter((s) => s.id !== sg.id))}
+            className="text-[0.85rem] text-ink-faint underline underline-offset-4 hover:text-terra-deep"
+          >
+            Remove subgroup
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() =>
+          onChange([
+            ...subgroups,
+            { id: `sg-${Date.now()}`, title: "", description: "", links: [] },
+          ])
+        }
+        className="btn btn-quiet"
+      >
+        + Add a subgroup
+      </button>
     </div>
   );
 }

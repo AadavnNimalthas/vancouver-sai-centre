@@ -528,7 +528,7 @@ export function BhajanCoordinatorConsole({
                     <select
                       className="field"
                       value={editingBhajan.tempo}
-                      onChange={(e: any) => setEditingBhajan({ ...editingBhajan, tempo: e.target.value })}
+                      onChange={(e) => setEditingBhajan({ ...editingBhajan, tempo: e.target.value as "slow" | "medium" | "fast" })}
                     >
                       <option value="slow">Slow</option>
                       <option value="medium">Medium</option>

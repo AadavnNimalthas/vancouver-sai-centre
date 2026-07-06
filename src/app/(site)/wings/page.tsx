@@ -2,22 +2,28 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MalaDivider } from "@/components/MalaDivider";
 import { Reveal } from "@/components/Reveal";
-import { getWings } from "@/lib/data";
+import { getCurrentUser } from "@/lib/auth";
+import { getPosts, getWings } from "@/lib/data";
+import { formatShortDate } from "@/lib/format";
+import type { Post, PostPlacement } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Wings",
-  description: "The four wings of the Vancouver Sai Centre: Devotional, Service, Education, and Young Adults.",
-};
-
-const WING_IMAGES: Record<string, string> = {
-  devotional: "/images/gallery-bhajan-hall.svg",
-  service: "/images/gallery-seva.svg",
-  education: "/images/gallery-sse.svg",
-  "young-adults": "/images/gallery-ya.svg",
+  description:
+    "The four wings of the Vancouver Sai Centre: Devotional, Education, Service, and Young Adults.",
 };
 
 export default async function WingsPage() {
+  const user = await getCurrentUser();
+  const signedIn = Boolean(user);
   const wings = await getWings();
+
+  const wingPosts: Record<string, Post[]> = {};
+  await Promise.all(
+    wings.map(async (w) => {
+      wingPosts[w.slug] = await getPosts(`wing-${w.slug}` as PostPlacement, signedIn);
+    })
+  );
 
   return (
     <div className="pb-24 pt-36">
@@ -39,31 +45,90 @@ export default async function WingsPage() {
           <Reveal key={wing.slug}>
             <section
               id={wing.slug}
-              className={`grid scroll-mt-28 items-center gap-10 py-16 lg:grid-cols-2 lg:gap-16 ${
-                i > 0 ? "border-t border-line" : ""
-              }`}
+              className={`scroll-mt-28 py-16 ${i > 0 ? "border-t border-line" : ""}`}
             >
-              <div className={i % 2 === 1 ? "lg:order-2" : ""}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={WING_IMAGES[wing.slug]}
-                  alt=""
-                  className="aspect-[4/3] w-full rounded-lg object-cover shadow-soft"
-                />
+              <div
+                className={`grid items-start gap-10 ${wing.imageUrl ? "lg:grid-cols-2 lg:gap-16" : ""}`}
+              >
+                {wing.imageUrl && (
+                  <div className={i % 2 === 1 ? "lg:order-2" : ""}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={wing.imageUrl}
+                      alt=""
+                      className="aspect-[4/3] w-full rounded-lg object-cover shadow-soft"
+                    />
+                  </div>
+                )}
+                <div>
+                  <p className="font-display text-lg italic text-gold">{wing.tagline}</p>
+                  <h2 className="mt-1 font-display text-4xl text-ink">{wing.name}</h2>
+                  <p className="prose-warm mt-5">{wing.description}</p>
+                  {wing.activities.length > 0 && (
+                    <ul className="mt-7 space-y-2.5">
+                      {wing.activities.map((a) => (
+                        <li
+                          key={a}
+                          className="flex items-center gap-3 text-[0.95rem] text-ink-soft"
+                        >
+                          <span
+                            className="size-1.5 shrink-0 rounded-full bg-gold"
+                            aria-hidden="true"
+                          />
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="eyebrow">{wing.tagline}</p>
-                <h2 className="mt-3 font-display text-4xl text-ink">{wing.name}</h2>
-                <p className="prose-warm mt-5">{wing.description}</p>
-                <ul className="mt-7 space-y-2.5">
-                  {wing.activities.map((a) => (
-                    <li key={a} className="flex items-center gap-3 text-[0.95rem] text-ink-soft">
-                      <span className="size-1.5 shrink-0 rounded-full bg-gold" aria-hidden="true" />
-                      {a}
-                    </li>
+
+              {wing.subgroups.length > 0 && (
+                <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                  {wing.subgroups.map((sg) => (
+                    <div key={sg.id} className="card p-6">
+                      <h3 className="font-display text-xl text-ink">{sg.title}</h3>
+                      <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-soft">
+                        {sg.description}
+                      </p>
+                      {sg.links.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-4">
+                          {sg.links.map((l) => (
+                            <a key={l.url} href={l.url} className="link-editorial text-[0.875rem]">
+                              {l.label}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
-                </ul>
-              </div>
+                </div>
+              )}
+
+              {(wingPosts[wing.slug] ?? []).length > 0 && (
+                <div className="mt-10">
+                  <h3 className="eyebrow eyebrow-rule mb-3">From the {wing.name}</h3>
+                  <div className="divide-y divide-line border-t border-line">
+                    {wingPosts[wing.slug].map((post) => (
+                      <article key={post.id} className="py-4">
+                        <time className="text-[0.7rem] uppercase tracking-[0.12em] text-ink-faint">
+                          {formatShortDate(post.createdAt)}
+                        </time>
+                        <p className="mt-0.5 font-display text-lg text-ink">{post.title}</p>
+                        <p className="mt-1 text-[0.875rem] text-ink-soft">{post.description}</p>
+                        {post.ctaLabel && post.ctaUrl && (
+                          <Link
+                            href={post.ctaUrl}
+                            className="link-editorial mt-1.5 inline-block text-[0.85rem]"
+                          >
+                            {post.ctaLabel}
+                          </Link>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           </Reveal>
         ))}

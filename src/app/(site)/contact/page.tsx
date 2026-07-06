@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { ContactForm } from "@/components/ContactForm";
 import { Reveal } from "@/components/Reveal";
+import { getSiteContent } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Visit, write, or call the Vancouver Sai Centre. Newcomers are always welcome.",
+  description: "Visit or write to the Vancouver Sai Centre. Newcomers are always welcome.",
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const site = await getSiteContent();
+
   return (
     <div className="mx-auto max-w-5xl px-5 pb-24 pt-36 sm:px-8">
       <Reveal>
@@ -29,32 +32,45 @@ export default function ContactPage() {
               <p className="mt-4 text-ink">
                 Vancouver Sai Centre
                 <br />
-                2215 East Pender Street
-                <br />
-                Vancouver, BC
+                {site.address}
               </p>
-              <p className="mt-3 text-[0.9rem] text-ink-soft">
-                Street parking is usually available nearby. Please remove your
-                shoes in the foyer.
-              </p>
+              {site.parkingInfo && (
+                <p className="mt-3 text-[0.9rem] text-ink-soft">{site.parkingInfo}</p>
+              )}
             </div>
-            <div>
-              <h2 className="eyebrow eyebrow-rule">Weekly rhythm</h2>
-              <ul className="mt-4 space-y-2 text-[0.95rem] text-ink-soft">
-                <li><strong className="font-semibold text-ink">Sundays, 5:00 pm:</strong> Bhajans and satsang</li>
-                <li><strong className="font-semibold text-ink">Sundays, 3:00 pm:</strong> SSE classes</li>
-                <li><strong className="font-semibold text-ink">Wednesdays, 7:30 pm:</strong> Study circle</li>
-                <li><strong className="font-semibold text-ink">Fridays, 7:00 pm:</strong> Young adults</li>
-              </ul>
-            </div>
+
+            {site.whenMeet.length > 0 && (
+              <div>
+                <h2 className="eyebrow eyebrow-rule">Weekly rhythm</h2>
+                <ul className="mt-4 space-y-2 text-[0.95rem] text-ink-soft">
+                  {site.whenMeet.map((m) => (
+                    <li key={m.label}>
+                      <strong className="font-semibold text-ink">{m.time}:</strong>{" "}
+                      {m.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div>
               <h2 className="eyebrow eyebrow-rule">Write</h2>
               <p className="mt-4">
-                <a href="mailto:vancouversaicentre@gmail.com" className="link-editorial">
-                  vancouversaicentre@gmail.com
+                <a href={`mailto:${site.contactEmail}`} className="link-editorial">
+                  {site.contactEmail}
                 </a>
               </p>
             </div>
+
+            {site.mapEmbedUrl && (
+              <iframe
+                src={site.mapEmbedUrl}
+                title="Map to the Vancouver Sai Centre"
+                className="h-64 w-full rounded-lg border border-line"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            )}
           </div>
         </Reveal>
 

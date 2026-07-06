@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getEvents, getRegistrationsForUser, getAnnouncements } from "@/lib/data";
+import { getEvents, getPosts, getRegistrationsForUser } from "@/lib/data";
 import { upcomingOccurrences } from "@/lib/recurrence";
 import { formatEventDate, formatEventTime, formatMonthDay, formatShortDate } from "@/lib/format";
 import { INTEREST_TOPICS } from "@/lib/types";
@@ -11,13 +11,25 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function PortalDashboard() {
   const user = (await getCurrentUser())!;
-  const [events, registrations, announcements] = await Promise.all([
+  const [events, registrations, portalPosts, newsPosts] = await Promise.all([
     getEvents(),
     getRegistrationsForUser(user.id),
-    getAnnouncements(),
+    getPosts("portal", true),
+    getPosts("announcements", true),
   ]);
-  const upcoming = upcomingOccurrences(events, new Date(), 3);
-  const active = registrations.filter((r) => r.status !== "cancelled");
+  const seen = new Set<string>();
+  const announcements = [...portalPosts, ...newsPosts].filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+  const now = new Date();
+  const upcoming = upcomingOccurrences(events, now, 3);
+  const active = registrations.filter(
+    (r) =>
+      r.status !== "cancelled" &&
+      (!r.eventStartsAt || new Date(r.eventStartsAt) >= now)
+  );
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = user.fullName.split(" ")[0];
@@ -52,6 +64,11 @@ export default async function PortalDashboard() {
             </Link>
           </div>
           <div className="mt-4 border-t border-line">
+            {upcoming.length === 0 && (
+              <p className="py-6 text-[0.9rem] text-ink-soft">
+                Nothing is scheduled at the moment.
+              </p>
+            )}
             {upcoming.map((o) => {
               const d = formatMonthDay(o.startsAt);
               return (
@@ -103,13 +120,16 @@ export default async function PortalDashboard() {
         <aside>
           <h2 className="eyebrow eyebrow-rule">Announcements</h2>
           <div className="mt-4 space-y-5">
+            {announcements.length === 0 && (
+              <p className="text-[0.9rem] text-ink-soft">No announcements right now.</p>
+            )}
             {announcements.slice(0, 3).map((a) => (
               <article key={a.id} className="border-b border-line pb-5">
                 <time className="text-[0.7rem] uppercase tracking-[0.14em] text-ink-faint">
-                  {a.sentAt ? formatShortDate(a.sentAt) : "Draft"}
+                  {formatShortDate(a.createdAt)}
                 </time>
                 <h3 className="mt-1.5 font-display text-lg leading-snug text-ink">{a.title}</h3>
-                <p className="mt-1.5 text-[0.85rem] leading-relaxed text-ink-soft">{a.body}</p>
+                <p className="mt-1.5 text-[0.85rem] leading-relaxed text-ink-soft">{a.description}</p>
               </article>
             ))}
           </div>

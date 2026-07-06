@@ -1,16 +1,21 @@
 import "server-only";
 import { isSupabaseConfigured } from "./config";
-import { demoCurrentUser } from "./demo-data";
+import { localAdmin } from "./demo-data";
+import { getDemoDb } from "./demo-db-store";
 import { createClient } from "./supabase/server";
 import { roleAtLeast, type Profile, type Role } from "./types";
 
 /**
  * Returns the signed-in user's profile, or null.
- * In demo mode a sample administrator is always "signed in" so the portal
- * and admin areas are explorable.
+ * Without Supabase the site runs against the local database with a
+ * built-in Web Team administrator account, so the whole CMS is usable
+ * in local development.
  */
 export async function getCurrentUser(): Promise<Profile | null> {
-  if (!isSupabaseConfigured) return demoCurrentUser;
+  if (!isSupabaseConfigured) {
+    const stored = getDemoDb().profiles.find((p) => p.id === localAdmin.id);
+    return stored ?? localAdmin;
+  }
 
   const supabase = await createClient();
   const {
@@ -33,6 +38,8 @@ export async function getCurrentUser(): Promise<Profile | null> {
     interests: profile.interests ?? [],
     joinedAt: profile.created_at,
     avatarUrl: profile.avatar_url,
+    wing: profile.wing ?? null,
+    extraWings: profile.extra_wings ?? [],
   };
 }
 

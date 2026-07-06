@@ -15,7 +15,7 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [submitting, startSubmitTransition] = useTransition();
-  const [importedData, setImportedData] = useState<any>(null);
+  const [importedData, setImportedData] = useState<Partial<import("@/lib/types").Bhajan> | null>(null);
 
   // Review editable states
   const [title, setTitle] = useState("");
@@ -45,8 +45,8 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
         setLanguage(data.language || "Sanskrit");
         setCategory(data.category || "Sai");
         setNotes(data.notes || "");
-      } catch (err: any) {
-        setError(err.message || "Failed to parse the URL. Please verify it and try again.");
+      } catch (err) {
+        setError((err instanceof Error && err.message) || "Failed to parse the URL. Please verify it and try again.");
       }
     });
   }
@@ -169,7 +169,7 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
               <select
                 className="field"
                 value={tempo}
-                onChange={(e: any) => setTempo(e.target.value)}
+                onChange={(e) => setTempo(e.target.value as "slow" | "medium" | "fast")}
                 disabled={submitting}
               >
                 <option value="slow">Slow</option>

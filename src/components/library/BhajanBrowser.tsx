@@ -56,7 +56,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     const q = query.trim().toLowerCase();
     
     // Filter
-    let result = bhajans.filter((b) => {
+    const result = bhajans.filter((b) => {
       if (language !== "all" && b.language !== language) return false;
       if (tempo !== "all" && b.tempo !== tempo) return false;
       if (category !== "all" && b.category !== category) return false;
@@ -215,7 +215,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
               <select
                 className="bg-transparent border-0 font-semibold text-sm text-ink-soft focus:ring-0 focus:outline-none cursor-pointer py-1"
                 value={sortBy}
-                onChange={(e: any) => setSortBy(e.target.value)}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
               >
                 <option value="alpha">Alphabetical</option>
                 <option value="recent">Recently Added</option>
@@ -342,7 +342,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                       </div>
                       <div>
                         <label className="label">Tempo *</label>
-                        <select className="field" value={tempoInput} onChange={(e: any) => setTempoInput(e.target.value)} disabled={pending}>
+                        <select className="field" value={tempoInput} onChange={(e) => setTempoInput(e.target.value as "slow" | "medium" | "fast")} disabled={pending}>
                           <option value="slow">Slow</option>
                           <option value="medium">Medium</option>
                           <option value="fast">Fast</option>

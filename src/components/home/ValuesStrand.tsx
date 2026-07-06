@@ -2,53 +2,30 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
-
-const VALUES = [
-  {
-    sanskrit: "Prema",
-    name: "Love",
-    line: "Care for the people around you, in what you think, say, and do.",
-  },
-  {
-    sanskrit: "Sathya",
-    name: "Truth",
-    line: "Be honest with yourself and with others.",
-  },
-  {
-    sanskrit: "Shanti",
-    name: "Peace",
-    line: "A settled mind, practised through prayer and contentment.",
-  },
-  {
-    sanskrit: "Dharma",
-    name: "Right Conduct",
-    line: "Do the right thing, even when it is not easy.",
-  },
-  {
-    sanskrit: "Ahimsa",
-    name: "Non-Violence",
-    line: "Cause no harm through your words or your actions.",
-  },
-];
+import type { ValueItem } from "@/lib/types";
 
 /**
  * The five values shown as beads on a strand, like a mala.
- * Selecting a bead shows its meaning below.
+ * Selecting a bead shows its meaning below. The values and their
+ * descriptions are edited in the Site content console.
  */
-export function ValuesStrand() {
+export function ValuesStrand({ values }: { values: ValueItem[] }) {
   const [active, setActive] = useState(0);
   const reduce = useReducedMotion();
+
+  if (values.length === 0) return null;
+  const current = values[Math.min(active, values.length - 1)];
 
   return (
     <div>
       <div className="relative mx-auto flex max-w-3xl items-center justify-between">
         <span className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-line" aria-hidden="true" />
-        {VALUES.map((v, i) => (
+        {values.map((v, i) => (
           <button
             key={v.name}
             onClick={() => setActive(i)}
             aria-pressed={active === i}
-            aria-label={`${v.name} (${v.sanskrit})`}
+            aria-label={v.sanskrit ? `${v.name} (${v.sanskrit})` : v.name}
             className="group relative flex flex-col items-center gap-3 px-1 pt-8"
           >
             <span
@@ -76,12 +53,12 @@ export function ValuesStrand() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         >
-          <p className="font-display text-4xl italic text-gold sm:text-5xl">
-            {VALUES[active].sanskrit}
-          </p>
-          <p className="mt-4 text-lg leading-relaxed text-ink-soft">
-            {VALUES[active].line}
-          </p>
+          {current.sanskrit && (
+            <p className="font-display text-4xl italic text-gold sm:text-5xl">
+              {current.sanskrit}
+            </p>
+          )}
+          <p className="mt-4 text-lg leading-relaxed text-ink-soft">{current.line}</p>
         </motion.div>
       </div>
     </div>
