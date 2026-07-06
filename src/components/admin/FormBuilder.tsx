@@ -19,6 +19,7 @@ import {
 const WING_OPTIONS: { label: string; value: WingSlug | "" }[] = [
   { label: "Centre-wide (General)", value: "" },
   { label: "Devotional", value: "devotional" },
+  { label: "Bhajans", value: "bhajans" },
   { label: "Service", value: "service" },
   { label: "Education", value: "education" },
   { label: "Young Adults", value: "young-adults" },

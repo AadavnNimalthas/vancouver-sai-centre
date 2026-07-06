@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateBhajanStatus, saveBhajanSignUpForm, editBhajan, deleteBhajan } from "@/lib/admin-actions";
+import { updateBhajanStatus, editBhajan, deleteBhajan } from "@/lib/admin-actions";
 import { formatShortDate } from "@/lib/format";
 import {
   BHAJAN_DEITY_OPTIONS,
   BHAJAN_TEMPO_OPTIONS,
   type Bhajan,
-  type BhajanSignUpForm,
-  type BhajanSubmission,
   type BhajanTempo,
+  type SaiForm,
+  type FormResponse,
+  type FormField,
 } from "@/lib/types";
 import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,8 +18,8 @@ import { ShareFormModal } from "./ShareFormModal";
 import type { FormShareWithUser } from "@/lib/types";
 
 interface BhajanCoordinatorConsoleProps {
-  forms: BhajanSignUpForm[];
-  submissionsMap: Record<string, BhajanSubmission[]>;
+  forms: SaiForm[];
+  submissionsMap: Record<string, FormResponse[]>;
   sharesMap: Record<string, FormShareWithUser[]>;
   pendingBhajans: Bhajan[];
   allBhajans: Bhajan[];
@@ -31,17 +32,16 @@ export function BhajanCoordinatorConsole({
   pendingBhajans: initialPending,
   allBhajans: initialAll,
 }: BhajanCoordinatorConsoleProps) {
-  const [activeTab, setActiveTab] = useState<"sheets" | "suggested" | "forms" | "library">("sheets");
+  const [activeTab, setActiveTab] = useState<"sheets" | "suggested" | "library">("sheets");
   const [pending, startTransition] = useTransition();
 
   // Dynamic lists to support instant client-side state updates
   const [pendingList, setPendingList] = useState<Bhajan[]>(initialPending);
   const [bhajansList, setBhajansList] = useState<Bhajan[]>(initialAll);
-  const [formsList, setFormsList] = useState<BhajanSignUpForm[]>(forms);
+  const [formsList, setFormsList] = useState<SaiForm[]>(forms);
 
   // Form selections
   const [selectedFormId, setSelectedFormId] = useState(forms[0]?.id || "");
-  const [editingForm, setEditingForm] = useState<Partial<BhajanSignUpForm> | null>(null);
 
   // Editing bhajan state
   const [editingBhajan, setEditingBhajan] = useState<Bhajan | null>(null);
@@ -76,35 +76,6 @@ export function BhajanCoordinatorConsole({
     });
   }
 
-  function handleSaveForm() {
-    if (!editingForm?.title || !editingForm?.openDate || !editingForm?.closeDate || !editingForm?.bhajansRequired) {
-      alert("Please fill in all required form fields.");
-      return;
-    }
-    startTransition(async () => {
-      const res = await saveBhajanSignUpForm({
-        id: editingForm.id,
-        title: editingForm.title || "",
-        description: editingForm.description || "",
-        openDate: editingForm.openDate || "",
-        closeDate: editingForm.closeDate || "",
-        bhajansRequired: editingForm.bhajansRequired || 1,
-        allowedCategories: editingForm.allowedCategories || [],
-        allowedTempos: editingForm.allowedTempos || [],
-        allowedBeats: editingForm.allowedBeats || [],
-        published: editingForm.published ?? false,
-      });
-
-      if (res.ok) {
-        alert(res.message);
-        // Refresh local list (simplification: page refresh is triggered inside server actions)
-        setEditingForm(null);
-        window.location.reload();
-      } else {
-        alert(res.message);
-      }
-    });
-  }
 
   function handleSaveBhajan(bypassCheck: boolean | React.MouseEvent = false) {
     if (!editingBhajan) return;
@@ -206,32 +177,30 @@ export function BhajanCoordinatorConsole({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-line gap-6 text-sm font-semibold overflow-x-auto pb-1">
-        <button
-          onClick={() => setActiveTab("sheets")}
-          className={`pb-3 transition-colors relative ${activeTab === "sheets" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
-        >
-          Sign-Up Sheets
-        </button>
-        <button
-          onClick={() => setActiveTab("suggested")}
-          className={`pb-3 transition-colors relative ${activeTab === "suggested" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
-        >
-          Suggested Bhajans ({pendingList.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("forms")}
-          className={`pb-3 transition-colors relative ${activeTab === "forms" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
-        >
-          Manage Sign-up Forms
-        </button>
-        <button
-          onClick={() => setActiveTab("library")}
-          className={`pb-3 transition-colors relative ${activeTab === "library" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
-        >
-          Bhajan Library
-        </button>
+      <div className="flex border-b border-line gap-6 text-sm font-semibold overflow-x-auto pb-1 items-center justify-between">
+        <div className="flex gap-6">
+          <button
+            onClick={() => setActiveTab("sheets")}
+            className={`pb-3 transition-colors relative ${activeTab === "sheets" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
+          >
+            Sign-Up Sheets
+          </button>
+          <button
+            onClick={() => setActiveTab("suggested")}
+            className={`pb-3 transition-colors relative ${activeTab === "suggested" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
+          >
+            Suggested Bhajans ({pendingList.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("library")}
+            className={`pb-3 transition-colors relative ${activeTab === "library" ? "text-terra-deep border-b-2 border-terra" : "text-ink-soft hover:text-ink"}`}
+          >
+            Bhajan Library
+          </button>
+        </div>
+        <a href="/admin/forms/new" className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold shrink-0 mb-3">
+          + Create Form
+        </a>
       </div>
 
       {/* Tab Panels */}
@@ -264,7 +233,11 @@ export function BhajanCoordinatorConsole({
               </div>
             ) : (
               <div className="space-y-4">
-                {currentSubmissions.map((sub) => (
+                {currentSubmissions.map((sub) => {
+                  const currentForm = formsList.find(f => f.id === selectedFormId);
+                  if (!currentForm) return null;
+                  
+                  return (
                   <div key={sub.id} className="card p-5 border-line bg-white-warm space-y-3">
                     <div className="flex items-center justify-between border-b border-line pb-2.5">
                       <div>
@@ -274,20 +247,38 @@ export function BhajanCoordinatorConsole({
                       <span className="text-xs text-ink-faint">{formatShortDate(sub.createdAt)}</span>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                      {sub.bhajans?.map((bh, i) => (
-                        <div key={bh.id} className="p-3 rounded bg-sand/20 border border-line/40 text-xs">
-                          <p className="font-semibold text-ink-faint">Slot #{i + 1}</p>
-                          <p className="font-display font-bold text-ink mt-1 text-sm">{bh.title}</p>
-                          <p className="text-ink-soft mt-0.5">{bh.category} · {bh.language} · {bh.tempo.replace("_", " ")}</p>
-                          {bh.status === "pending" && (
-                            <span className="inline-block text-[0.6rem] font-bold text-terra uppercase mt-1">Pending Approval</span>
-                          )}
-                        </div>
-                      ))}
+                    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 pt-2">
+                      {currentForm.fields.map((field) => {
+                        const answer = sub.answers[field.id];
+                        if (!answer) return null;
+
+                        if (field.type === "bhajan-select") {
+                          const bh = bhajansList.find(b => b.id === answer);
+                          if (!bh) return null;
+                          return (
+                            <div key={field.id} className="p-3 rounded bg-sand/20 border border-line/40 text-xs">
+                              <p className="font-semibold text-ink-faint">{field.label}</p>
+                              <p className="font-display font-bold text-ink mt-1 text-sm">{bh.title}</p>
+                              <p className="text-ink-soft mt-0.5">{bh.category} · {bh.language} · {bh.tempo.replace("_", " ")}</p>
+                              {bh.status === "pending" && (
+                                <span className="inline-block text-[0.6rem] font-bold text-terra uppercase mt-1">Pending Approval</span>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Render other generic fields
+                        return (
+                          <div key={field.id} className="p-3 rounded bg-sand/10 border border-line/30 text-xs">
+                            <p className="font-semibold text-ink-faint">{field.label}</p>
+                            <p className="text-ink mt-1">{String(answer)}</p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -342,191 +333,6 @@ export function BhajanCoordinatorConsole({
                         disabled={pending}
                       >
                         Approve & Save
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Forms Tab */}
-        {activeTab === "forms" && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-ink text-sm sm:text-base">Devotional Sign-up Forms</h3>
-              {!editingForm && (
-                <button
-                  onClick={() =>
-                    setEditingForm({
-                      title: "",
-                      description: "",
-                      openDate: new Date().toISOString().slice(0, 10),
-                      closeDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-                      bhajansRequired: 2,
-                      allowedCategories: [],
-                      allowedTempos: [],
-                      allowedBeats: [],
-                      published: false,
-                    })
-                  }
-                  className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold"
-                >
-                  + Create Form
-                </button>
-              )}
-            </div>
-
-            {editingForm ? (
-              <div className="card p-6 border-line bg-white-warm space-y-4">
-                <h4 className="font-display text-lg font-bold text-ink">{editingForm.id ? "Edit Sign-up Form" : "Create Sign-up Form"}</h4>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label">Form Title *</label>
-                    <input
-                      className="field"
-                      value={editingForm.title || ""}
-                      onChange={(e) => setEditingForm((prev) => ({ ...prev, title: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Slots Required *</label>
-                    <input
-                      type="number"
-                      className="field"
-                      min={1}
-                      value={editingForm.bhajansRequired || 1}
-                      onChange={(e) => setEditingForm((prev) => ({ ...prev, bhajansRequired: parseInt(e.target.value) || 1 }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Open Date *</label>
-                    <input
-                      type="date"
-                      className="field"
-                      value={editingForm.openDate?.slice(0, 10) || ""}
-                      onChange={(e) => setEditingForm((prev) => ({ ...prev, openDate: new Date(e.target.value).toISOString() }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="label">Close Date *</label>
-                    <input
-                      type="date"
-                      className="field"
-                      value={editingForm.closeDate?.slice(0, 10) || ""}
-                      onChange={(e) => setEditingForm((prev) => ({ ...prev, closeDate: new Date(e.target.value).toISOString() }))}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="label">Description (Optional)</label>
-                    <textarea
-                      className="field"
-                      rows={2.5}
-                      value={editingForm.description || ""}
-                      onChange={(e) => setEditingForm((prev) => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-                  <div className="sm:col-span-2 space-y-4 rounded-lg border border-line bg-sand/30 p-4">
-                    <p className="text-[0.8rem] leading-relaxed text-ink-soft">
-                      Bhajan selection is built in: members see an &ldquo;Add
-                      bhajan&rdquo; button for each slot and pick from the
-                      library. Use the limits below to narrow what they can
-                      pick. Leave a group empty for no limit.
-                    </p>
-                    <FilterToggleRow
-                      label="Limit categories"
-                      options={[...BHAJAN_DEITY_OPTIONS]}
-                      selected={editingForm.allowedCategories || []}
-                      onChange={(allowedCategories) =>
-                        setEditingForm((prev) => ({ ...prev, allowedCategories }))
-                      }
-                    />
-                    <FilterToggleRow
-                      label="Limit tempo"
-                      options={BHAJAN_TEMPO_OPTIONS.map((t) => t.value)}
-                      optionLabels={Object.fromEntries(BHAJAN_TEMPO_OPTIONS.map((t) => [t.value, t.label]))}
-                      selected={editingForm.allowedTempos || []}
-                      onChange={(v) =>
-                        setEditingForm((prev) => ({ ...prev, allowedTempos: v as BhajanTempo[] }))
-                      }
-                    />
-                    <FilterToggleRow
-                      label="Limit beat / taal"
-                      options={distinctBeats}
-                      selected={editingForm.allowedBeats || []}
-                      onChange={(allowedBeats) =>
-                        setEditingForm((prev) => ({ ...prev, allowedBeats }))
-                      }
-                      emptyNote="Beats appear here once bhajans in the library have a beat/taal set."
-                    />
-                  </div>
-                  <div className="flex items-center gap-3 pt-2">
-                    <input
-                      type="checkbox"
-                      id="published"
-                      className="rounded border-line text-terra focus:ring-terra"
-                      checked={editingForm.published || false}
-                      onChange={(e) => setEditingForm((prev) => ({ ...prev, published: e.target.checked }))}
-                    />
-                    <label htmlFor="published" className="text-sm font-semibold text-ink-soft cursor-pointer">
-                      Publish Immediately
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 justify-end pt-4 border-t border-line/60">
-                  <button onClick={() => setEditingForm(null)} className="btn btn-ghost text-xs !px-4 !py-1.5" disabled={pending}>
-                    Cancel
-                  </button>
-                  <button onClick={handleSaveForm} className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold" disabled={pending}>
-                    {pending ? "Saving..." : "Save Form"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {formsList.map((f) => (
-                  <div key={f.id} className="card p-4 border-line bg-white-warm flex justify-between items-center gap-4">
-                    <div>
-                      <h4 className="font-semibold text-ink">{f.title}</h4>
-                      <p className="text-xs text-ink-soft mt-1">
-                        Slots: **{f.bhajansRequired}** · Published: **{f.published ? "Yes" : "No"}** · Deadline: **{formatShortDate(f.closeDate)}**
-                      </p>
-                      {((f.allowedCategories?.length ?? 0) > 0 ||
-                        (f.allowedTempos?.length ?? 0) > 0 ||
-                        (f.allowedBeats?.length ?? 0) > 0) && (
-                        <p className="text-[0.7rem] text-gold mt-0.5">
-                          Limits: {[
-                            f.allowedCategories?.length ? f.allowedCategories.join(", ") : null,
-                            f.allowedTempos?.length ? f.allowedTempos.join(", ") : null,
-                            f.allowedBeats?.length ? f.allowedBeats.join(", ") : null,
-                          ].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setEditingForm(f)}
-                        className="btn btn-ghost border border-line text-xs !px-3 !py-1"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm(`Are you sure you want to delete "${f.title}"?`)) {
-                            const { deleteBhajanSignUpForm } = await import("@/lib/admin-actions");
-                            const res = await deleteBhajanSignUpForm(f.id);
-                            if (res.ok) {
-                              window.location.reload();
-                            } else {
-                              alert(res.message);
-                            }
-                          }
-                        }}
-                        className="btn btn-ghost border border-red-200 text-red-700 hover:bg-red-50 text-xs !px-3 !py-1"
-                      >
-                        Delete
                       </button>
                     </div>
                   </div>

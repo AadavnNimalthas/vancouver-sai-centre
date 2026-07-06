@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { getBhajans, getBhajanSignUpForms, getBhajanSubmissions } from "@/lib/data";
+import { getBhajans, getForms, getFormResponses, getFormShares } from "@/lib/data";
 import { BhajanCoordinatorConsole } from "@/components/admin/BhajanCoordinatorConsole";
 import { Reveal } from "@/components/Reveal";
-import type { BhajanSubmission } from "@/lib/types";
+import type { FormResponse } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Bhajans Coordinator Console · Admin",
@@ -15,20 +15,22 @@ export default async function AdminBhajansPage() {
   const user = await requireRole("wing-lead");
   if (!user) redirect("/portal");
 
-  // Fetch signup forms, all library bhajans
-  const [forms, allBhajans] = await Promise.all([
-    getBhajanSignUpForms(false), // Fetch drafts too
+  // Fetch standard forms where wing is 'bhajans', plus all library bhajans
+  const [allForms, allBhajans] = await Promise.all([
+    getForms(), // Fetch drafts too (if we want, actually getForms doesn't take args)
     getBhajans(false), // Fetch pending/archived too
   ]);
+  
+  const forms = allForms.filter(f => f.wing === "bhajans" || f.wing === "devotional");
 
   // Load submissions and shares for all forms in parallel
-  const submissionsMap: Record<string, BhajanSubmission[]> = {};
+  const submissionsMap: Record<string, FormResponse[]> = {};
   const sharesMap: Record<string, any[]> = {};
   await Promise.all(
     forms.map(async (form) => {
       const [subs, shares] = await Promise.all([
-        getBhajanSubmissions(form.id),
-        import("@/lib/data").then(m => m.getFormShares(form.id, true))
+        getFormResponses(form.id),
+        getFormShares(form.id, true)
       ]);
       submissionsMap[form.id] = subs;
       sharesMap[form.id] = shares;

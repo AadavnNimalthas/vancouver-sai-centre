@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getBhajanSignUpForm, getBhajanSubmissions, getForm, getFormShares } from "@/lib/data";
+import { getForm, getFormShares, getFormResponses } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { Reveal } from "@/components/Reveal";
 import { formatShortDate } from "@/lib/format";
@@ -18,14 +18,12 @@ interface PageProps {
 
 export default async function SharedFormPage({ params, searchParams }: PageProps) {
   const { id } = await params;
-  const { type } = await searchParams;
-  const isBhajanForm = type === "bhajan";
 
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   // Verify access via form_shares
-  const shares = await getFormShares(id, isBhajanForm);
+  const shares = await getFormShares(id, false);
   const hasAccess = shares.some(s => s.userId === user.id) || 
     ["administrator", "executive", "president"].includes(user.role);
 
@@ -43,70 +41,17 @@ export default async function SharedFormPage({ params, searchParams }: PageProps
     );
   }
 
-  if (isBhajanForm) {
-    const form = await getBhajanSignUpForm(id);
-    if (!form) notFound();
-
-    const submissions = await getBhajanSubmissions(id);
-
-    return (
-      <div className="space-y-8 max-w-4xl">
-        <Reveal>
-          <Link href="/portal" className="link-editorial text-[0.85rem]">
-            &larr; Back to Portal
-          </Link>
-          <h1 className="mt-6 font-display text-3xl sm:text-4xl text-ink leading-tight">
-            {form.title} (Shared)
-          </h1>
-          <p className="mt-3 text-[0.95rem] text-ink-soft leading-relaxed">
-            {form.description}
-          </p>
-        </Reveal>
-
-        <div className="border-t border-line/60 pt-6">
-          <h2 className="text-xl font-display font-bold text-ink mb-6">Submissions ({submissions.length})</h2>
-          {submissions.length === 0 ? (
-            <div className="rounded-lg border border-line bg-sand/10 p-10 text-center text-ink-soft">
-              No submissions received yet for this session.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {submissions.map((sub) => (
-                <div key={sub.id} className="card p-5 border-line bg-white-warm space-y-3">
-                  <div className="flex items-center justify-between border-b border-line pb-2.5">
-                    <div>
-                      <span className="font-semibold text-ink">{sub.userName}</span>
-                      <span className="text-xs text-ink-faint ml-2.5">({sub.userEmail})</span>
-                    </div>
-                    <span className="text-xs text-ink-faint">{formatShortDate(sub.createdAt)}</span>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-                    {sub.bhajans?.map((bh, i) => (
-                      <div key={bh.id} className="p-3 rounded bg-sand/20 border border-line/40 text-xs">
-                        <p className="font-semibold text-ink-faint">Slot #{i + 1}</p>
-                        <p className="font-display font-bold text-ink mt-1 text-sm">{bh.title}</p>
-                        <p className="text-ink-soft mt-0.5">{bh.category} · {bh.language} · {bh.tempo.replace("_", " ")}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Handle standard general forms
   const form = await getForm(id);
   if (!form) notFound();
 
-  // Fetch responses (we don't have a dedicated function for this if not in admin-actions, so we inline it or use supabase)
+  // Load responses
   const supabase = await createClient();
-  const { data } = await supabase.from("form_responses").select("*").eq("form_id", id).order("created_at", { ascending: false });
-  const responses = data || [];
+  const { data: responsesData } = await supabase
+    .from("form_responses")
+    .select("*")
+    .eq("form_id", id)
+    .order("created_at", { ascending: false });
+  const responses = responsesData || [];
 
   return (
     <div className="space-y-8 max-w-4xl">

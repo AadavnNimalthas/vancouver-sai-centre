@@ -100,12 +100,13 @@ const ROLE_RANK: Record<Role, number> = {
 };
 
 /* Wings a coordinator can be scoped to */
-export type WingSlug = "devotional" | "service" | "education" | "young-adults";
+export type WingSlug = "devotional" | "bhajans" | "service" | "education" | "young-adults";
 
-export const WING_SLUGS: WingSlug[] = ["devotional", "service", "education", "young-adults"];
+export const WING_SLUGS: WingSlug[] = ["devotional", "bhajans", "service", "education", "young-adults"];
 
 export const WING_LABELS: Record<WingSlug, string> = {
   devotional: "Devotional",
+  bhajans: "Bhajans",
   service: "Service",
   education: "Education",
   "young-adults": "Young Adults",

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getBhajanSignUpForms, getMyBhajans, getFavoriteBhajanIds, getBhajanSubmissionsForUser, getMyFormResponses, getPublishedForms } from "@/lib/data";
-import { BhajanFormCard } from "@/components/portal/BhajanFormCard";
+import { getMyBhajans, getFavoriteBhajanIds, getMyFormResponses, getPublishedForms } from "@/lib/data";
 import { GeneralFormCard } from "@/components/portal/GeneralFormCard";
 import { BhajanHistoryList } from "@/components/portal/BhajanHistoryList";
 import { Reveal } from "@/components/Reveal";
@@ -15,27 +14,18 @@ export default async function PortalBhajansPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Fetch signup forms, published builder forms, submissions, favorites
-  const [allForms, publishedForms, myResponses, myBhajans, favoriteIds, submissions] = await Promise.all([
-    getBhajanSignUpForms(true), // Only published
+  // Fetch published builder forms, submissions, favorites
+  const [allPublishedForms, myResponses, myBhajans, favoriteIds] = await Promise.all([
     getPublishedForms(), // Forms pushed from the form builder
     getMyFormResponses(user.id),
     getMyBhajans(user.id),
     getFavoriteBhajanIds(user.id),
-    getBhajanSubmissionsForUser(user.id),
   ]);
 
-  // Map submissions to forms for checking submission state
-  const submissionsMap = new Map(submissions.map((s) => [s.formId, s]));
   const responsesMap = new Map(myResponses.map((r) => [r.formId, r]));
 
-  // Separate active (now between open and close) and closed
-  const now = new Date();
-  const activeForms = allForms.filter((f) => {
-    const open = new Date(f.openDate);
-    const close = new Date(f.closeDate);
-    return now >= open && now <= close;
-  });
+  // Only show bhajan forms here
+  const activeForms = allPublishedForms.filter((f) => f.wing === "bhajans" || f.wing === "devotional");
 
   return (
     <div className="space-y-10">
@@ -53,20 +43,13 @@ export default async function PortalBhajansPage() {
       <Reveal delay={0.1}>
         <section className="space-y-4">
           <h2 className="font-display text-2xl text-ink">Active Sign-ups</h2>
-          {activeForms.length === 0 && publishedForms.length === 0 ? (
+          {activeForms.length === 0 ? (
             <div className="rounded-lg border border-line bg-sand/15 p-6 text-center text-sm text-ink-soft">
               There are no active sign-up forms at this time. Check back later!
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
               {activeForms.map((form) => (
-                <BhajanFormCard
-                  key={form.id}
-                  form={form}
-                  submission={submissionsMap.get(form.id)}
-                />
-              ))}
-              {publishedForms.map((form) => (
                 <GeneralFormCard
                   key={form.id}
                   form={form}
