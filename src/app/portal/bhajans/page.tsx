@@ -53,9 +53,9 @@ export default async function PortalBhajansPage() {
       <Reveal delay={0.1}>
         <section className="space-y-4">
           <h2 className="font-display text-2xl text-ink">Active Sign-ups</h2>
-          {activeForms.length === 0 ? (
+          {activeForms.length === 0 && publishedForms.length === 0 ? (
             <div className="rounded-lg border border-line bg-sand/15 p-6 text-center text-sm text-ink-soft">
-              There are no active bhajan sign-up forms at this time. Check back later!
+              There are no active sign-up forms at this time. Check back later!
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
@@ -64,6 +64,13 @@ export default async function PortalBhajansPage() {
                   key={form.id}
                   form={form}
                   submission={submissionsMap.get(form.id)}
+                />
+              ))}
+              {publishedForms.map((form) => (
+                <GeneralFormCard
+                  key={form.id}
+                  form={form}
+                  response={responsesMap.get(form.id)}
                 />
               ))}
             </div>
