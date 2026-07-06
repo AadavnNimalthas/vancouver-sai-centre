@@ -11,13 +11,13 @@ $$ language plpgsql security definer;
 
 -- Add tracking to forms
 alter table public.forms
-  add column if not null created_by uuid references public.profiles(id) on delete set null,
-  add column if not null wing text;
+  add column if not exists created_by uuid references public.profiles(id) on delete set null,
+  add column if not exists wing text;
 
 -- Add tracking to bhajan_signup_forms
 alter table public.bhajan_signup_forms
-  add column if not null created_by uuid references public.profiles(id) on delete set null,
-  add column if not null wing text default 'devotional';
+  add column if not exists created_by uuid references public.profiles(id) on delete set null,
+  add column if not exists wing text default 'devotional';
 
 -- Create form_shares table
 create table public.form_shares (
