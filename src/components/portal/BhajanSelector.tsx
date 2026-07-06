@@ -90,7 +90,7 @@ export function BhajanSelector({
       b.lyrics.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory ? b.category === selectedCategory : true;
     return matchesSearch && matchesCategory;
-  });
+  }).sort((a, b) => a.title.localeCompare(b.title));
 
   function handleSelect(bhajan: Bhajan) {
     onSelect(bhajan);
