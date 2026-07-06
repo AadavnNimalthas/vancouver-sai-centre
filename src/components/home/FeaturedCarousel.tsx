@@ -92,26 +92,26 @@ function FeaturedSlide({ post }: { post: Post }) {
   if (post.instagramUrl) {
     const embedUrl = post.instagramUrl.replace(/\/?$/, "/") + "embed";
     return (
-      <article className="flex w-[88%] shrink-0 snap-start flex-col overflow-hidden rounded-lg border border-line bg-white-warm sm:w-[70%] sm:flex-row lg:w-[58%]">
+      <article className="flex w-[75vw] max-w-[340px] sm:w-[340px] lg:w-[360px] shrink-0 snap-start flex-col overflow-hidden rounded-lg border border-line bg-white-warm aspect-[3/4]">
         <iframe
           src={embedUrl}
           title={post.title}
-          className="h-[380px] w-full border-0 sm:h-auto sm:w-1/2"
+          className="w-full border-0 h-1/2 sm:h-3/5"
           loading="lazy"
         />
-        <div className="flex flex-1 flex-col justify-center p-7">
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-gold">
+        <div className="flex flex-1 flex-col justify-center p-5">
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-gold">
             From our Instagram
           </p>
-          <h2 className="mt-2 font-display text-2xl leading-snug text-ink">{post.title}</h2>
+          <h2 className="mt-1.5 font-display text-lg leading-snug text-ink line-clamp-2">{post.title}</h2>
           {post.description && (
-            <p className="mt-2 text-[0.9rem] leading-relaxed text-ink-soft">{post.description}</p>
+            <p className="mt-1 text-[0.8rem] leading-relaxed text-ink-soft line-clamp-2">{post.description}</p>
           )}
           <a
             href={post.instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="link-editorial mt-4 text-[0.9rem]"
+            className="link-editorial mt-3 text-[0.8rem]"
           >
             See the post
           </a>
@@ -121,46 +121,46 @@ function FeaturedSlide({ post }: { post: Post }) {
   }
 
   return (
-    <article className="relative w-[88%] shrink-0 snap-start overflow-hidden rounded-lg sm:w-[70%] lg:w-[58%]">
+    <article className="relative w-[75vw] max-w-[340px] sm:w-[340px] lg:w-[360px] shrink-0 snap-start overflow-hidden rounded-lg aspect-[3/4]">
       {post.videoUrl ? (
         <video
           src={post.videoUrl}
           poster={post.imageUrl ?? undefined}
           controls
           playsInline
-          className="h-[380px] w-full bg-ink object-cover sm:h-[420px]"
+          className="absolute inset-0 w-full h-full bg-ink object-cover"
         />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={post.imageUrl ?? "/images/hero-dawn.svg"}
           alt=""
-          className="h-[380px] w-full object-cover sm:h-[420px]"
+          className="absolute inset-0 w-full h-full object-cover"
         />
       )}
 
-      <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-ink/75 via-ink/20 to-transparent p-7 sm:p-9">
-        <h2 className="max-w-lg font-display text-2xl leading-snug text-cream sm:text-3xl">
+      <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-ink/90 via-ink/30 to-transparent p-6 sm:p-8">
+        <h2 className="max-w-lg font-display text-xl leading-snug text-cream sm:text-2xl line-clamp-2">
           {post.title}
         </h2>
         {post.description && (
-          <p className="mt-2 max-w-md text-[0.9rem] leading-relaxed text-cream/85">
+          <p className="mt-2 max-w-md text-[0.85rem] leading-relaxed text-cream/85 line-clamp-2">
             {post.description}
           </p>
         )}
         {post.ctaLabel && post.ctaUrl && (
-          <div className="mt-5">
+          <div className="mt-4">
             {external ? (
               <a
                 href={post.ctaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-primary !px-5 !py-2.5 text-[0.875rem]"
+                className="btn btn-primary !px-4 !py-2 text-[0.8rem]"
               >
                 {post.ctaLabel}
               </a>
             ) : (
-              <Link href={post.ctaUrl} className="btn btn-primary !px-5 !py-2.5 text-[0.875rem]">
+              <Link href={post.ctaUrl} className="btn btn-primary !px-4 !py-2 text-[0.8rem]">
                 {post.ctaLabel}
               </Link>
             )}
