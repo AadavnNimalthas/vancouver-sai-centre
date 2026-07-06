@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { parseSaiRhythmsUrl } from "@/lib/sairhythms";
-import { submitBhajan } from "@/lib/actions";
+import { importFromSaiRhythms, submitBhajan } from "@/lib/actions";
 import { motion } from "framer-motion";
 import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
 import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
@@ -31,26 +30,33 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
   const [category, setCategory] = useState("");
   const [notes, setNotes] = useState("");
 
+  function applyData(data: Partial<Bhajan>) {
+    setImportedData(data);
+    setTitle(data.title || "");
+    setLyrics(data.lyrics || "");
+    setMeaning(data.meaning || "");
+    setTempo(data.tempo || "medium");
+    setBeatTaal(data.beatTaal || "");
+    setLanguage(data.language || "Sanskrit");
+    setCategory(data.category || "");
+    setNotes(data.notes || "");
+  }
+
   function handleFetch() {
     if (!url) {
-      setError("Please paste a SaiRhythms URL.");
+      setError("Please paste a SaiRhythms link.");
       return;
     }
     setError("");
     startTransition(async () => {
-      try {
-        const data = await parseSaiRhythmsUrl(url);
-        setImportedData(data);
-        setTitle(data.title || "");
-        setLyrics(data.lyrics || "");
-        setMeaning(data.meaning || "");
-        setTempo(data.tempo || "medium");
-        setBeatTaal(data.beatTaal || "8 Beat / Keherwa");
-        setLanguage(data.language || "Sanskrit");
-        setCategory(data.category || "Sai");
-        setNotes(data.notes || "");
-      } catch (err) {
-        setError((err instanceof Error && err.message) || "Failed to parse the URL. Please verify it and try again.");
+      const res = await importFromSaiRhythms(url);
+      if (res.data) {
+        // Move to the review step even on a partial import so the
+        // coordinator can finish anything we could not read.
+        applyData(res.data);
+        if (!res.ok) setError(res.message);
+      } else {
+        setError(res.message);
       }
     });
   }
@@ -105,17 +111,19 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
       {!importedData ? (
         <div className="space-y-4">
           <div>
-            <label className="label text-ink-soft">Paste SaiRhythms URL</label>
+            <label className="label text-ink-soft">Paste SaiRhythms song link</label>
             <input
               type="url"
               className="field"
-              placeholder="https://sairhythms.sathyasai.org/bhajan/shiva-shambho"
+              placeholder="https://sairhythms.sathyasai.org/song/sai-ram-sai-ram"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               disabled={pending}
             />
             <p className="mt-1.5 text-[0.8rem] text-ink-faint">
-              Example: Try pasting `https://sairhythms.sathyasai.org/bhajan/shiva-shambho` to see auto-extraction work.
+              Open a song on sairhythms.sathyasai.org and copy the link from
+              your browser. We read the title, lyrics, beat, and English
+              meaning automatically.
             </p>
           </div>
 
@@ -142,8 +150,8 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
           className="space-y-5"
         >
           <div className="rounded-lg bg-sand/20 p-4 border border-line">
-            <p className="text-xs font-semibold text-gold uppercase tracking-wider">Successfully Extracted</p>
-            <p className="text-sm text-ink-soft mt-1">Please review and refine the extracted bhajan details below.</p>
+            <p className="text-xs font-semibold text-gold uppercase tracking-wider">Imported from SaiRhythms</p>
+            <p className="text-sm text-ink-soft mt-1">Please review the details below, then submit to the library.</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -183,14 +191,16 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
               />
             </div>
             <div>
-              <label className="label">Beat / Taal *</label>
+              <label className="label">Beat *</label>
               <input
                 className="field"
-                placeholder="e.g. 8 Beat / Keherwa"
+                inputMode="numeric"
+                placeholder="e.g. 6, 7, 8, 10"
                 value={beatTaal}
                 onChange={(e) => setBeatTaal(e.target.value)}
                 disabled={submitting}
               />
+              <p className="mt-1 text-[0.75rem] text-ink-faint">Number of beats only.</p>
             </div>
             <div>
               <label className="label">Tempo *</label>
@@ -216,19 +226,21 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
           <div>
             <label className="label">Lyrics *</label>
             <textarea
-              className="field font-mono text-sm leading-relaxed"
-              rows={5}
+              className="field text-sm leading-relaxed"
+              rows={Math.min(14, Math.max(5, lyrics.split("\n").length + 1))}
               value={lyrics}
               onChange={(e) => setLyrics(e.target.value)}
               disabled={submitting}
             />
+            <p className="mt-1 text-[0.75rem] text-ink-faint">One line per line, exactly as sung.</p>
           </div>
 
+          {/* English meaning — mirrors the blue description box on SaiRhythms */}
           <div>
-            <label className="label">Meaning *</label>
+            <label className="label">Meaning (English) *</label>
             <textarea
-              className="field text-sm"
-              rows={3}
+              className="w-full rounded-md border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-sm leading-relaxed text-sky-950 outline-none transition-colors focus:border-sky-400 disabled:opacity-60"
+              rows={Math.min(10, Math.max(3, meaning.split("\n").length + 1))}
               value={meaning}
               onChange={(e) => setMeaning(e.target.value)}
               disabled={submitting}

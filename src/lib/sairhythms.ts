@@ -1,129 +1,144 @@
-import type { Bhajan, BhajanTempo } from "./types";
+import type { Bhajan } from "./types";
+import { BHAJAN_DEITY_OPTIONS } from "./types";
 
-interface SaiRhythmsInfo {
-  title: string;
-  lyrics: string;
-  meaning: string;
-  language: string;
-  tempo: BhajanTempo;
-  beatTaal: string;
-  category: string;
-  sourceLink: string;
-}
+/**
+ * Parsers for SaiRhythms song pages (sairhythms.sathyasai.org).
+ *
+ * The site is a Drupal 7 app that serves song pages at
+ *   https://sairhythms.sathyasai.org/song/<slug>
+ * where the slug is the title with spaces turned into hyphens (and an
+ * occasional trailing "-<number>" to disambiguate duplicates).
+ *
+ * These are pure functions so they can be unit-reasoned and run on the
+ * server. The network fetch lives in the `importFromSaiRhythms` server
+ * action (a browser fetch would be blocked by CORS).
+ */
 
-const MOCK_SAIRHYTHMS_BHAJANS: Record<string, SaiRhythmsInfo> = {
-  "shiva-shambho": {
-    title: "Shiva Shambho Shambo",
-    lyrics: "Shiva Shambho Shambho Shiva Shambho Shambho\nHara Hara Shambho Mahadeva\nGanga Dhara Dhara Shambho Mahadeva\nHala Hala Dhara Shambho Mahadeva",
-    meaning: "O Lord Shiva! You are Shambho, the giver of auspiciousness and joy. You are Mahadeva, the supreme Lord, who wears the holy Ganga river in His matted locks and drank the Hala Hala poison to save the universe.",
-    language: "Sanskrit",
-    tempo: "medium",
-    beatTaal: "8 Beat / Keherwa",
-    category: "Shiva",
-    sourceLink: "https://sairhythms.sathyasai.org/bhajan/shiva-shambho",
-  },
-  "ganesha-sharanam": {
-    title: "Ganesha Sharanam Parama Pavanam",
-    lyrics: "Ganesha Sharanam Parama Pavanam\nSathya Sai Sharanam Pranavakaram\nGanesha Sharanam Gauri Putram\nSathya Sai Sharanam Vighna Vinasham",
-    meaning: "We take refuge in Lord Ganesha, the supremely holy one, the beloved son of Mother Gauri. We take refuge in Bhagavan Sathya Sai, the embodiment of the sacred Om, who destroys all obstacles on our path.",
-    language: "Sanskrit",
-    tempo: "slow",
-    beatTaal: "8 Beat / Keherwa",
-    category: "Ganesha",
-    sourceLink: "https://sairhythms.sathyasai.org/bhajan/ganesha-sharanam",
-  },
-  "hari-hari-bhajan-do": {
-    title: "Hari Hari Bhajan Do Mana",
-    lyrics: "Hari Hari Bhajan Do Mana Re\nSathya Sai Bhajan Do Mana Re\nKeshava Madhava Hari Hari Bol\nSathya Sai Baba Hari Hari Bol",
-    meaning: "O mind, sing the glories of Lord Hari (Vishnu) and Bhagavan Sri Sathya Sai. Chant the divine names of Keshava, Madhava, and Sai.",
-    language: "Hindi",
-    tempo: "medium",
-    beatTaal: "8 Beat / Keherwa",
-    category: "Krishna",
-    sourceLink: "https://sairhythms.sathyasai.org/bhajan/hari-hari-bhajan-do",
-  },
-  "sai-prema-pradata": {
-    title: "Sai Prema Pradata Anandadatha",
-    lyrics: "Sai Prema Pradata Anandadatha\nJagat Pathey Baba Sai Ram\nPrema Pradata Anandadatha\nKaruna Sagar Baba Sai Ram",
-    meaning: "Lord Sai is the bestower of pure divine love and infinite bliss. He is the master of the entire cosmos, the ocean of mercy and compassion.",
-    language: "Hindi",
-    tempo: "fast",
-    beatTaal: "8-Beat / Dadra Double",
-    category: "Sai",
-    sourceLink: "https://sairhythms.sathyasai.org/bhajan/sai-prema-pradata",
-  },
+const ENTITIES: Record<string, string> = {
+  "&nbsp;": " ",
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&rsquo;": "’",
+  "&lsquo;": "‘",
+  "&ldquo;": "“",
+  "&rdquo;": "”",
+  "&mdash;": "—",
+  "&ndash;": "–",
 };
 
-export async function parseSaiRhythmsUrl(url: string): Promise<Partial<Bhajan>> {
-  if (!url) {
-    throw new Error("URL is empty");
+function decodeEntities(input: string): string {
+  return input
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&[a-z]+;|&#39;/gi, (m) => ENTITIES[m.toLowerCase()] ?? m);
+}
+
+function stripTags(input: string): string {
+  return decodeEntities(input.replace(/<[^>]+>/g, "")).replace(/ /g, " ");
+}
+
+/** "Sai Natha Bhagawan" — first letter of every word capitalised. */
+export function toTitleCase(input: string): string {
+  return input
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/** Derive a readable title from a /song/<slug> URL. */
+export function titleFromSaiRhythmsUrl(url: string): string {
+  const afterSong = url.split(/\/song\/+/i)[1];
+  if (!afterSong) return "";
+  const slug = decodeURIComponent(afterSong.split(/[?#]/)[0])
+    // drop Drupal's duplicate-disambiguation suffix, e.g. "sai-ram-sai-ram-0"
+    .replace(/-\d+$/, "");
+  return toTitleCase(slug.replace(/-+/g, " ").trim());
+}
+
+/** Guess the deity/category by looking for a known name in the title/lyrics. */
+function guessCategory(title: string, lyrics: string): string {
+  const hay = `${title} ${lyrics}`.toLowerCase();
+  // Longer names first so "Subrahmanya" wins over a stray "rama" inside it.
+  const ordered = [...BHAJAN_DEITY_OPTIONS].sort((a, b) => b.length - a.length);
+  for (const deity of ordered) {
+    if (new RegExp(`\\b${deity.toLowerCase()}`, "i").test(hay)) return deity;
+  }
+  return "";
+}
+
+/**
+ * Extract a bhajan from the HTML of a SaiRhythms song page.
+ * Returns whatever it can find; callers should treat missing lyrics as a
+ * failed import (likely not a song page).
+ */
+export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhajan> {
+  const html = rawHtml.replace(/\s+/g, " ");
+
+  // ── Title: prefer the page <title>, fall back to the URL slug ──
+  let title = "";
+  const titleTag = html.match(/<title>(.*?)<\/title>/i);
+  if (titleTag) {
+    title = stripTags(titleTag[1]).replace(/\s*\|\s*Sai Rhythms\s*$/i, "").trim();
+  }
+  if (!title || /resource not found/i.test(title)) {
+    title = titleFromSaiRhythmsUrl(url);
+  } else {
+    title = toTitleCase(title);
   }
 
-  // Clean URL and extract slug
-  const trimmed = url.trim().toLowerCase();
-  
-  // Basic validation
-  if (!trimmed.includes("sairhythms.sathyasai.org")) {
-    throw new Error("Not a valid SaiRhythms URL");
-  }
+  // ── Lyrics: the first `lyrics-set` block, line by line ──
+  const setMatch = html.match(
+    /<div class=['"]lyrics-set['"]>([\s\S]*?)(?:<div class=['"]lyrics-set['"]>|<!--\s*\.devotional-song-content|<hr)/i
+  );
+  const block = setMatch ? setMatch[1] : html;
+  const lyrics = [
+    ...block.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
+  ]
+    .map((m) => stripTags(m[1]).trim())
+    .filter(Boolean)
+    .join("\n");
 
-  // Look for match in mock list
-  for (const slug of Object.keys(MOCK_SAIRHYTHMS_BHAJANS)) {
-    if (trimmed.includes(slug)) {
-      const bhajanInfo = MOCK_SAIRHYTHMS_BHAJANS[slug];
-      return {
-        title: bhajanInfo.title,
-        lyrics: bhajanInfo.lyrics,
-        meaning: bhajanInfo.meaning,
-        language: bhajanInfo.language,
-        tempo: bhajanInfo.tempo,
-        beatTaal: bhajanInfo.beatTaal,
-        category: bhajanInfo.category,
-        sourceLink: url,
-        status: "pending",
-        audioUrl: null,
-        videoUrl: null,
-      };
+  // ── Beat: the metadata label that reads "<n> Beat" → just the number ──
+  let beatTaal = "";
+  for (const m of html.matchAll(/class=['"]label label-default['"][^>]*>(.*?)<\/span>/gi)) {
+    const label = stripTags(m[1]);
+    const beat = label.match(/(\d+)\s*Beat/i);
+    if (beat) {
+      beatTaal = beat[1];
+      break;
     }
   }
 
-  // Fallback: If it's a generic SaiRhythms URL, extract title from url structure
-  // e.g. https://sairhythms.sathyasai.org/bhajan/some-bhajan-title
-  try {
-    const parts = trimmed.split(/\/bhajans?\/+/);
-    if (parts.length > 1) {
-      const titleSlug = parts[1].split(/[?#]/)[0];
-      const parsedTitle = titleSlug
-        .split("-")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
+  // ── Meaning: the blue "alert-info" box below the lyrics ──
+  let meaning = "";
+  const meaningBox = html.match(/devotional-song-meaning[^>]*>([\s\S]*?)<\/div>/i);
+  if (meaningBox) {
+    meaning = stripTags(meaningBox[1].replace(/<br\s*\/?>/gi, "\n"))
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
 
-      return {
-        title: parsedTitle,
-        lyrics: "",
-        meaning: "",
-        language: "Sanskrit",
-        tempo: "medium",
-        beatTaal: "8 Beat / Keherwa",
-        category: "Sai",
-        sourceLink: url,
-        status: "pending",
-        audioUrl: null,
-        videoUrl: null,
-      };
-    }
-  } catch {
-    // Ignore and return bare minimum
+  // ── Language: the first lyrics tab label (e.g. "Sanskrit / Hindi") ──
+  let language = "Sanskrit";
+  const langTab = html.match(/class=['"]alt-lyrics-title['"][^>]*>(.*?)<\/a>/i);
+  if (langTab) {
+    const raw = stripTags(langTab[1]).trim();
+    if (raw) language = raw;
   }
 
   return {
-    title: "Imported Bhajan",
-    lyrics: "",
-    meaning: "",
-    language: "Sanskrit",
+    title,
+    lyrics,
+    meaning,
+    language,
     tempo: "medium",
-    beatTaal: "8 Beat / Keherwa",
-    category: "Sai",
+    beatTaal,
+    category: guessCategory(title, lyrics),
     sourceLink: url,
     status: "pending",
     audioUrl: null,

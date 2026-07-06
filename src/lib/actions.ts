@@ -6,7 +6,76 @@ import { getCurrentUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
 import { getDemoDb, mutateDemoDb, newId, saveDemoDb } from "./demo-db-store";
+import { parseSaiRhythmsHtml, titleFromSaiRhythmsUrl } from "./sairhythms";
 import type { Bhajan, BhajanTempo, Registration } from "./types";
+
+export interface ImportResult {
+  ok: boolean;
+  message: string;
+  data?: Partial<Bhajan>;
+}
+
+/**
+ * Fetch a SaiRhythms song page on the server and extract the bhajan.
+ * Runs server-side because the browser can't read a cross-origin page.
+ */
+export async function importFromSaiRhythms(url: string): Promise<ImportResult> {
+  const clean = url.trim();
+  if (!clean) return { ok: false, message: "Please paste a SaiRhythms link." };
+  if (!/^https?:\/\/(www\.)?sairhythms\.sathyasai\.org\//i.test(clean)) {
+    return {
+      ok: false,
+      message: "That does not look like a SaiRhythms link. It should start with sairhythms.sathyasai.org.",
+    };
+  }
+  if (!/\/song\//i.test(clean)) {
+    return {
+      ok: false,
+      message: "Please use the link to a specific song, for example sairhythms.sathyasai.org/song/sai-ram-sai-ram.",
+    };
+  }
+
+  try {
+    const res = await fetch(clean, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        Accept: "text/html",
+      },
+      cache: "no-store",
+    });
+
+    if (res.status === 404) {
+      return {
+        ok: false,
+        message: `We could not find that song on SaiRhythms. Double-check the link. We read the title as “${titleFromSaiRhythmsUrl(clean)}”.`,
+      };
+    }
+    if (!res.ok) {
+      return { ok: false, message: `SaiRhythms returned an error (HTTP ${res.status}). Please try again.` };
+    }
+
+    const html = await res.text();
+    const data = parseSaiRhythmsHtml(html, clean);
+
+    if (!data.lyrics) {
+      // Still hand back the title so the coordinator can fill the rest in.
+      return {
+        ok: false,
+        message:
+          "We opened the page but could not read the lyrics automatically. You can paste them in by hand below.",
+        data: { ...data, title: data.title || titleFromSaiRhythmsUrl(clean) },
+      };
+    }
+
+    return { ok: true, message: "Imported from SaiRhythms.", data };
+  } catch {
+    return {
+      ok: false,
+      message: "We could not reach SaiRhythms. Check your connection and the link, then try again.",
+    };
+  }
+}
 
 export interface ActionResult {
   ok: boolean;
