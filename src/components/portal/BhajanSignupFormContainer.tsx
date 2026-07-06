@@ -124,6 +124,8 @@ export function BhajanSignupFormContainer({
               allBhajans={allBhajans}
               myBhajans={myBhajans}
               allowedCategories={form.allowedCategories}
+              allowedTempos={form.allowedTempos}
+              allowedBeats={form.allowedBeats}
             />
           </Reveal>
         ))}

@@ -165,7 +165,7 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
                 disabled={submitting}
               >
                 <option value="">Select Deity / Category</option>
-                {(category && !BHAJAN_DEITY_OPTIONS.includes(category as any)
+                {(category && !(BHAJAN_DEITY_OPTIONS as readonly string[]).includes(category)
                   ? [...BHAJAN_DEITY_OPTIONS, category].sort()
                   : BHAJAN_DEITY_OPTIONS
                 ).map((deity) => (
@@ -265,7 +265,7 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
                   onClick={() => setVariationConfirm(null)}
                   className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
                 >
-                  No, it's the same
+                  No, it&rsquo;s the same
                 </button>
               </div>
             </div>

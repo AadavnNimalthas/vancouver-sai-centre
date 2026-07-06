@@ -147,6 +147,8 @@ function mapBhajanSignUpForm(row: any): BhajanSignUpForm {
     closeDate: row.close_date,
     bhajansRequired: row.bhajans_required ?? 1,
     allowedCategories: row.allowed_categories ?? [],
+    allowedTempos: row.allowed_tempos ?? [],
+    allowedBeats: row.allowed_beats ?? [],
     published: row.published ?? false,
     createdAt: row.created_at,
   };
@@ -336,9 +338,13 @@ export async function getBhajanCategories(): Promise<string[]> {
   return Array.from(new Set(categories)).sort();
 }
 
+function normalizeSignUpForm(f: BhajanSignUpForm): BhajanSignUpForm {
+  return { ...f, allowedTempos: f.allowedTempos ?? [], allowedBeats: f.allowedBeats ?? [] };
+}
+
 export async function getBhajanSignUpForms(onlyPublished = true): Promise<BhajanSignUpForm[]> {
   if (!isSupabaseConfigured) {
-    const list = getDemoDb().signupForms;
+    const list = getDemoDb().signupForms.map(normalizeSignUpForm);
     return onlyPublished ? list.filter((f) => f.published) : list;
   }
   const supabase = await createClient();
@@ -349,8 +355,10 @@ export async function getBhajanSignUpForms(onlyPublished = true): Promise<Bhajan
 }
 
 export async function getBhajanSignUpForm(id: string): Promise<BhajanSignUpForm | null> {
-  if (!isSupabaseConfigured)
-    return getDemoDb().signupForms.find((f) => f.id === id) ?? null;
+  if (!isSupabaseConfigured) {
+    const found = getDemoDb().signupForms.find((f) => f.id === id);
+    return found ? normalizeSignUpForm(found) : null;
+  }
   const supabase = await createClient();
   const { data } = await supabase
     .from("bhajan_signup_forms")

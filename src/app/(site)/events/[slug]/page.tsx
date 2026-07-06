@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { CategoryChip } from "@/components/EventCard";
 import { RegistrationPanel } from "@/components/events/RegistrationPanel";
 import { Reveal } from "@/components/Reveal";
-import { getEventBySlug, getForm } from "@/lib/data";
+import { getBhajans, getEventBySlug, getForm } from "@/lib/data";
 import { formatEventDate, formatEventTime } from "@/lib/format";
 
 export async function generateMetadata({
@@ -27,6 +27,8 @@ export default async function EventPage({
   if (!event || !event.published) notFound();
 
   const form = event.formId ? await getForm(event.formId) : null;
+  const needsBhajans = form?.fields.some((f) => f.type === "bhajan-select") ?? false;
+  const bhajans = needsBhajans ? await getBhajans() : [];
   const full =
     event.capacity !== null && event.registeredCount >= event.capacity;
   const spotsLeft =
@@ -143,6 +145,7 @@ export default async function EventPage({
               registrationEnabled={event.registrationEnabled}
               volunteerEnabled={event.volunteerSignupEnabled}
               full={full}
+              bhajans={bhajans}
             />
           </Reveal>
         )}

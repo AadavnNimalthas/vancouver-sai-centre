@@ -63,7 +63,11 @@ export function BhajanFormCard({ form, submission }: BhajanFormCardProps) {
           <div className="flex justify-between">
             <span className="text-ink-faint">Categories:</span>
             <span className="font-semibold text-ink text-right">
-              {form.allowedCategories.length === 0 ? "Any Category" : form.allowedCategories.join(", ")}
+              {[
+                form.allowedCategories.length === 0 ? "Any category" : form.allowedCategories.join(", "),
+                (form.allowedTempos?.length ?? 0) > 0 ? `Tempo: ${form.allowedTempos.join(", ")}` : null,
+                (form.allowedBeats?.length ?? 0) > 0 ? `Beat: ${form.allowedBeats.join(", ")}` : null,
+              ].filter(Boolean).join(" · ")}
             </span>
           </div>
           <div className="flex justify-between">

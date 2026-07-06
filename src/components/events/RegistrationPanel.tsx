@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FormRenderer } from "@/components/FormRenderer";
 import { submitRegistration } from "@/lib/actions";
-import type { SaiForm } from "@/lib/types";
+import type { Bhajan, SaiForm } from "@/lib/types";
 
 /**
  * Registration / volunteer signup block on an event page.
@@ -15,12 +15,14 @@ export function RegistrationPanel({
   registrationEnabled,
   volunteerEnabled,
   full,
+  bhajans = [],
 }: {
   eventId: string;
   form: SaiForm | null;
   registrationEnabled: boolean;
   volunteerEnabled: boolean;
   full: boolean;
+  bhajans?: Bhajan[];
 }) {
   const both = registrationEnabled && volunteerEnabled;
   const [kind, setKind] = useState<"attendee" | "volunteer">(
@@ -71,6 +73,7 @@ export function RegistrationPanel({
         <FormRenderer
           key={kind}
           form={form}
+          bhajans={bhajans}
           submitLabel={
             kind === "volunteer"
               ? "Offer to volunteer"

@@ -178,7 +178,8 @@ export type FormFieldType =
   | "checkbox"
   | "date"
   | "file"
-  | "consent";
+  | "consent"
+  | "bhajan-select";
 
 export const FORM_FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "short-text", label: "Short text" },
@@ -192,7 +193,14 @@ export const FORM_FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: "date", label: "Date" },
   { value: "file", label: "File upload" },
   { value: "consent", label: "Consent checkbox" },
+  { value: "bhajan-select", label: "Bhajan selection" },
 ];
+
+export interface BhajanFieldFilters {
+  categories: string[];
+  tempos: string[];
+  beats: string[];
+}
 
 export interface FormField {
   id: string;
@@ -201,6 +209,8 @@ export interface FormField {
   helpText: string;
   required: boolean;
   options: string[]; // dropdown / radio / checkbox
+  /** Only for bhajan-select fields: limits which bhajans can be picked. */
+  bhajanFilters?: BhajanFieldFilters;
 }
 
 export interface SaiForm {
@@ -314,7 +324,10 @@ export interface BhajanSignUpForm {
   openDate: string;
   closeDate: string;
   bhajansRequired: number;
+  /** Empty arrays mean "no limit" for that filter. */
   allowedCategories: string[];
+  allowedTempos: BhajanTempo[];
+  allowedBeats: string[];
   published: boolean;
   createdAt: string;
 }

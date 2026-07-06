@@ -3,8 +3,14 @@
 import { useState, useTransition } from "react";
 import { updateBhajanStatus, saveBhajanSignUpForm, editBhajan, deleteBhajan } from "@/lib/admin-actions";
 import { formatShortDate } from "@/lib/format";
-import type { Bhajan, BhajanSignUpForm, BhajanSubmission, BhajanTempo } from "@/lib/types";
-import { BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
+import {
+  BHAJAN_DEITY_OPTIONS,
+  BHAJAN_TEMPO_OPTIONS,
+  type Bhajan,
+  type BhajanSignUpForm,
+  type BhajanSubmission,
+  type BhajanTempo,
+} from "@/lib/types";
 import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -42,6 +48,11 @@ export function BhajanCoordinatorConsole({
 
   const currentSubmissions = submissionsMap[selectedFormId] || [];
 
+  // Distinct beat/taal values across the library, for the sign-up form limits
+  const distinctBeats = Array.from(
+    new Set(bhajansList.map((b) => b.beatTaal.trim()).filter(Boolean))
+  ).sort();
+
   // Actions
   function handleStatusUpdate(bhajanId: string, status: "approved" | "rejected") {
     startTransition(async () => {
@@ -73,6 +84,8 @@ export function BhajanCoordinatorConsole({
         closeDate: editingForm.closeDate || "",
         bhajansRequired: editingForm.bhajansRequired || 1,
         allowedCategories: editingForm.allowedCategories || [],
+        allowedTempos: editingForm.allowedTempos || [],
+        allowedBeats: editingForm.allowedBeats || [],
         published: editingForm.published ?? false,
       });
 
@@ -341,6 +354,8 @@ export function BhajanCoordinatorConsole({
                       closeDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
                       bhajansRequired: 2,
                       allowedCategories: [],
+                      allowedTempos: [],
+                      allowedBeats: [],
                       published: false,
                     })
                   }
@@ -400,18 +415,38 @@ export function BhajanCoordinatorConsole({
                       onChange={(e) => setEditingForm((prev) => ({ ...prev, description: e.target.value }))}
                     />
                   </div>
-                  <div className="sm:col-span-2">
-                    <label className="label">Allowed Categories (Comma separated list, leave blank for any category)</label>
-                    <input
-                      className="field"
-                      placeholder="e.g. Ganesha, Shiva, Sai, Krishna"
-                      value={editingForm.allowedCategories?.join(", ") || ""}
-                      onChange={(e) =>
-                        setEditingForm((prev) => ({
-                          ...prev,
-                          allowedCategories: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                        }))
+                  <div className="sm:col-span-2 space-y-4 rounded-lg border border-line bg-sand/30 p-4">
+                    <p className="text-[0.8rem] leading-relaxed text-ink-soft">
+                      Bhajan selection is built in: members see an &ldquo;Add
+                      bhajan&rdquo; button for each slot and pick from the
+                      library. Use the limits below to narrow what they can
+                      pick. Leave a group empty for no limit.
+                    </p>
+                    <FilterToggleRow
+                      label="Limit categories"
+                      options={[...BHAJAN_DEITY_OPTIONS]}
+                      selected={editingForm.allowedCategories || []}
+                      onChange={(allowedCategories) =>
+                        setEditingForm((prev) => ({ ...prev, allowedCategories }))
                       }
+                    />
+                    <FilterToggleRow
+                      label="Limit tempo"
+                      options={BHAJAN_TEMPO_OPTIONS.map((t) => t.value)}
+                      optionLabels={Object.fromEntries(BHAJAN_TEMPO_OPTIONS.map((t) => [t.value, t.label]))}
+                      selected={editingForm.allowedTempos || []}
+                      onChange={(v) =>
+                        setEditingForm((prev) => ({ ...prev, allowedTempos: v as BhajanTempo[] }))
+                      }
+                    />
+                    <FilterToggleRow
+                      label="Limit beat / taal"
+                      options={distinctBeats}
+                      selected={editingForm.allowedBeats || []}
+                      onChange={(allowedBeats) =>
+                        setEditingForm((prev) => ({ ...prev, allowedBeats }))
+                      }
+                      emptyNote="Beats appear here once bhajans in the library have a beat/taal set."
                     />
                   </div>
                   <div className="flex items-center gap-3 pt-2">
@@ -446,6 +481,17 @@ export function BhajanCoordinatorConsole({
                       <p className="text-xs text-ink-soft mt-1">
                         Slots: **{f.bhajansRequired}** · Published: **{f.published ? "Yes" : "No"}** · Deadline: **{formatShortDate(f.closeDate)}**
                       </p>
+                      {((f.allowedCategories?.length ?? 0) > 0 ||
+                        (f.allowedTempos?.length ?? 0) > 0 ||
+                        (f.allowedBeats?.length ?? 0) > 0) && (
+                        <p className="text-[0.7rem] text-gold mt-0.5">
+                          Limits: {[
+                            f.allowedCategories?.length ? f.allowedCategories.join(", ") : null,
+                            f.allowedTempos?.length ? f.allowedTempos.join(", ") : null,
+                            f.allowedBeats?.length ? f.allowedBeats.join(", ") : null,
+                          ].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </div>
                     <button
                       onClick={() => setEditingForm(f)}
@@ -567,7 +613,7 @@ export function BhajanCoordinatorConsole({
                       onChange={(e) => setEditingBhajan({ ...editingBhajan, category: e.target.value })}
                     >
                       <option value="">Select Deity / Category</option>
-                      {(editingBhajan.category && !BHAJAN_DEITY_OPTIONS.includes(editingBhajan.category as any)
+                      {(editingBhajan.category && !(BHAJAN_DEITY_OPTIONS as readonly string[]).includes(editingBhajan.category)
                         ? [...BHAJAN_DEITY_OPTIONS, editingBhajan.category].sort()
                         : BHAJAN_DEITY_OPTIONS
                       ).map((deity) => (
@@ -661,7 +707,7 @@ export function BhajanCoordinatorConsole({
                         onClick={() => setVariationConfirm(null)}
                         className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
                       >
-                        No, it's the same
+                        No, it&rsquo;s the same
                       </button>
                     </div>
                   </div>
@@ -680,6 +726,64 @@ export function BhajanCoordinatorConsole({
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function FilterToggleRow({
+  label,
+  options,
+  optionLabels,
+  selected,
+  onChange,
+  emptyNote,
+}: {
+  label: string;
+  options: string[];
+  optionLabels?: Record<string, string>;
+  selected: string[];
+  onChange: (next: string[]) => void;
+  emptyNote?: string;
+}) {
+  const toggle = (value: string) =>
+    onChange(
+      selected.includes(value)
+        ? selected.filter((v) => v !== value)
+        : [...selected, value]
+    );
+
+  return (
+    <div>
+      <p className="label !mb-2">
+        {label}
+        <span className="ml-2 font-normal text-ink-faint">
+          {selected.length === 0 ? "(no limit)" : `(${selected.length} selected)`}
+        </span>
+      </p>
+      {options.length === 0 ? (
+        <p className="text-[0.8rem] text-ink-faint">{emptyNote ?? "No options yet."}</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {options.map((o) => {
+            const on = selected.includes(o);
+            return (
+              <button
+                key={o}
+                type="button"
+                onClick={() => toggle(o)}
+                aria-pressed={on}
+                className={`rounded-full px-3 py-1 text-[0.75rem] font-medium transition-colors ${
+                  on
+                    ? "bg-terra text-white"
+                    : "bg-white-warm text-ink-soft border border-line hover:border-gold"
+                }`}
+              >
+                {optionLabels?.[o] ?? o}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

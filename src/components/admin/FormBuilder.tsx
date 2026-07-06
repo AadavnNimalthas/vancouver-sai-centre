@@ -6,7 +6,10 @@ import { useState } from "react";
 import { FormRenderer } from "@/components/FormRenderer";
 import { saveForm } from "@/lib/admin-actions";
 import {
+  BHAJAN_DEITY_OPTIONS,
+  BHAJAN_TEMPO_OPTIONS,
   FORM_FIELD_TYPES,
+  type BhajanFieldFilters,
   type FormField,
   type FormFieldType,
   type SaiForm,
@@ -19,10 +22,13 @@ function newField(type: FormFieldType): FormField {
   return {
     id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     type,
-    label: type === "consent" ? "I agree" : label,
+    label:
+      type === "consent" ? "I agree" : type === "bhajan-select" ? "Bhajan 1" : label,
     helpText: "",
-    required: type === "consent",
+    required: type === "consent" || type === "bhajan-select",
     options: OPTION_TYPES.includes(type) ? ["Option 1", "Option 2"] : [],
+    bhajanFilters:
+      type === "bhajan-select" ? { categories: [], tempos: [], beats: [] } : undefined,
   };
 }
 
@@ -253,6 +259,13 @@ function FieldCard({
             </div>
           </div>
 
+          {field.type === "bhajan-select" && (
+            <BhajanFilterConfig
+              filters={field.bhajanFilters ?? { categories: [], tempos: [], beats: [] }}
+              onChange={(bhajanFilters) => onChange({ bhajanFilters })}
+            />
+          )}
+
           {OPTION_TYPES.includes(field.type) && (
             <div>
               <label className="label">Options (one per line)</label>
@@ -280,5 +293,89 @@ function FieldCard({
         </div>
       )}
     </Reorder.Item>
+  );
+}
+
+function BhajanFilterConfig({
+  filters,
+  onChange,
+}: {
+  filters: BhajanFieldFilters;
+  onChange: (f: BhajanFieldFilters) => void;
+}) {
+  const toggle = (key: "categories" | "tempos", value: string) => {
+    const list = filters[key];
+    onChange({
+      ...filters,
+      [key]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value],
+    });
+  };
+
+  return (
+    <div className="space-y-3 rounded-lg border border-line bg-white-warm p-4">
+      <p className="text-[0.8rem] leading-relaxed text-ink-soft">
+        Members will pick a bhajan from the library. Limit what they can pick
+        below; leave a group empty for no limit.
+      </p>
+      <div>
+        <p className="label !mb-1.5">Categories {filters.categories.length === 0 && <span className="font-normal text-ink-faint">(no limit)</span>}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {BHAJAN_DEITY_OPTIONS.map((c) => (
+            <FilterPill key={c} on={filters.categories.includes(c)} onClick={() => toggle("categories", c)}>
+              {c}
+            </FilterPill>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="label !mb-1.5">Tempo {filters.tempos.length === 0 && <span className="font-normal text-ink-faint">(no limit)</span>}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {BHAJAN_TEMPO_OPTIONS.map((t) => (
+            <FilterPill key={t.value} on={filters.tempos.includes(t.value)} onClick={() => toggle("tempos", t.value)}>
+              {t.label}
+            </FilterPill>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="label !mb-1.5">Beat / taal</p>
+        <input
+          className="field"
+          placeholder="e.g. 8 beat, keherwa (comma separated, blank for no limit)"
+          value={filters.beats.join(", ")}
+          onChange={(e) =>
+            onChange({
+              ...filters,
+              beats: e.target.value.split(",").map((b) => b.trim()).filter(Boolean),
+            })
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+function FilterPill({
+  on,
+  onClick,
+  children,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={`rounded-full px-3 py-1 text-[0.75rem] font-medium transition-colors ${
+        on
+          ? "bg-terra text-white"
+          : "border border-line bg-sand/40 text-ink-soft hover:border-gold"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

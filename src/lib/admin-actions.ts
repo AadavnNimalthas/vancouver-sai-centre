@@ -555,6 +555,8 @@ export async function saveBhajanSignUpForm(input: {
   closeDate: string;
   bhajansRequired: number;
   allowedCategories: string[];
+  allowedTempos: BhajanTempo[];
+  allowedBeats: string[];
   published: boolean;
 }): Promise<ActionResult> {
   await guard("executive");
@@ -572,6 +574,8 @@ export async function saveBhajanSignUpForm(input: {
           closeDate: input.closeDate,
           bhajansRequired: input.bhajansRequired,
           allowedCategories: input.allowedCategories,
+          allowedTempos: input.allowedTempos,
+          allowedBeats: input.allowedBeats,
           published: input.published,
         };
       }
@@ -584,6 +588,8 @@ export async function saveBhajanSignUpForm(input: {
         closeDate: input.closeDate,
         bhajansRequired: input.bhajansRequired,
         allowedCategories: input.allowedCategories,
+        allowedTempos: input.allowedTempos,
+        allowedBeats: input.allowedBeats,
         published: input.published,
         createdAt: new Date().toISOString(),
       });
@@ -602,6 +608,8 @@ export async function saveBhajanSignUpForm(input: {
     close_date: input.closeDate,
     bhajans_required: input.bhajansRequired,
     allowed_categories: input.allowedCategories,
+    allowed_tempos: input.allowedTempos,
+    allowed_beats: input.allowedBeats,
     published: input.published,
   };
 

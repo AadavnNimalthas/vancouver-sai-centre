@@ -18,6 +18,8 @@ interface BhajanSelectorProps {
     submitted: Bhajan[];
   };
   allowedCategories: string[];
+  allowedTempos?: string[];
+  allowedBeats?: string[];
 }
 
 export function BhajanSelector({
@@ -27,6 +29,8 @@ export function BhajanSelector({
   allBhajans,
   myBhajans,
   allowedCategories,
+  allowedTempos = [],
+  allowedBeats = [],
 }: BhajanSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -66,9 +70,17 @@ export function BhajanSelector({
     currentList = myBhajans.submitted;
   }
 
-  // Filter by allowed categories
+  // Apply the sign-up form's limits (empty array = no limit)
   if (allowedCategories.length > 0) {
     currentList = currentList.filter((b) => allowedCategories.includes(b.category));
+  }
+  if (allowedTempos.length > 0) {
+    currentList = currentList.filter((b) => allowedTempos.includes(b.tempo));
+  }
+  if (allowedBeats.length > 0) {
+    currentList = currentList.filter((b) =>
+      allowedBeats.some((beat) => beat.toLowerCase() === b.beatTaal.trim().toLowerCase())
+    );
   }
 
   // Filter by search and selected category
@@ -336,7 +348,7 @@ export function BhajanSelector({
                         <label className="label">Category *</label>
                         <select className="field" value={category} onChange={(e) => setCategory(e.target.value)} disabled={pending}>
                           <option value="">Select Deity / Category</option>
-                          {(category && !categoriesList.includes(category as any)
+                          {(category && !(categoriesList as readonly string[]).includes(category)
                             ? [...categoriesList, category].sort()
                             : categoriesList
                           ).map((cat) => (
@@ -394,7 +406,7 @@ export function BhajanSelector({
                             onClick={() => setVariationConfirm(null)}
                             className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
                           >
-                            No, it's the same
+                            No, it&rsquo;s the same
                           </button>
                         </div>
                       </div>

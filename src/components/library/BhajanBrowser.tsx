@@ -419,7 +419,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                             onClick={() => setVariationConfirm(null)}
                             className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
                           >
-                            No, it's the same
+                            No, it&rsquo;s the same
                           </button>
                         </div>
                       </div>
