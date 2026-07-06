@@ -77,7 +77,10 @@ export function BhajanCoordinatorConsole({
   }
 
 
-  function handleSaveBhajan(bypassCheck: boolean | React.MouseEvent = false) {
+  function handleSaveBhajan(
+    bypassCheck: boolean | React.MouseEvent = false,
+    statusOverride?: "pending" | "approved"
+  ) {
     if (!editingBhajan) return;
     if (!editingBhajan.title || !editingBhajan.lyrics || !editingBhajan.meaning || !editingBhajan.category || !editingBhajan.beatTaal) {
       alert("Title, lyrics, meaning, category, and beat/taal are required.");
@@ -104,6 +107,8 @@ export function BhajanCoordinatorConsole({
       }
     }
 
+    const targetStatus = statusOverride || (editingBhajan.status === "pending" ? "pending" : "approved");
+
     setVariationConfirm(null);
     startTransition(async () => {
       const res = await editBhajan(editingBhajan.id, {
@@ -116,6 +121,7 @@ export function BhajanCoordinatorConsole({
         category: editingBhajan.category,
         notes: editingBhajan.notes,
         sourceLink: editingBhajan.sourceLink,
+        status: targetStatus,
       });
 
       if (res.ok) {
@@ -123,9 +129,25 @@ export function BhajanCoordinatorConsole({
           // New bhajan added - reload page to fetch newly added bhajan
           window.location.reload();
         } else {
-          setBhajansList((prev) =>
-            prev.map((b) => (b.id === editingBhajan.id ? { ...editingBhajan, lyrics: formattedLyrics } : b))
-          );
+          if (targetStatus === "approved") {
+            // Remove from pendingList
+            setPendingList((prev) => prev.filter((b) => b.id !== editingBhajan.id));
+            // Add or update in bhajansList
+            setBhajansList((prev) => {
+              const exists = prev.some((b) => b.id === editingBhajan.id);
+              if (exists) {
+                return prev.map((b) => (b.id === editingBhajan.id ? { ...editingBhajan, lyrics: formattedLyrics, status: "approved" } : b));
+              } else {
+                return [...prev, { ...editingBhajan, lyrics: formattedLyrics, status: "approved" }];
+              }
+            });
+          } else {
+            // targetStatus is pending: update in pendingList, and make sure it is NOT in bhajansList
+            setPendingList((prev) =>
+              prev.map((b) => (b.id === editingBhajan.id ? { ...editingBhajan, lyrics: formattedLyrics, status: "pending" } : b))
+            );
+            setBhajansList((prev) => prev.filter((b) => b.id !== editingBhajan.id));
+          }
           setEditingBhajan(null);
         }
       } else {
@@ -322,6 +344,13 @@ export function BhajanCoordinatorConsole({
                     )}
 
                     <div className="flex gap-2 pt-2 border-t border-line/60 justify-end">
+                      <button
+                        onClick={() => setEditingBhajan(bh)}
+                        className="btn btn-ghost border border-line text-xs !px-4 !py-1.5 font-semibold text-ink"
+                        disabled={pending}
+                      >
+                        Edit
+                      </button>
                       <button
                         onClick={() => handleStatusUpdate(bh.id, "rejected")}
                         className="btn btn-ghost border border-red-200 text-red-700 hover:bg-red-50 text-xs !px-4 !py-1.5"
@@ -556,9 +585,28 @@ export function BhajanCoordinatorConsole({
                 <button onClick={() => { setEditingBhajan(null); setVariationConfirm(null); }} className="btn btn-ghost text-xs !px-4 !py-1.5" disabled={pending}>
                   Cancel
                 </button>
-                <button onClick={handleSaveBhajan} className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold" disabled={pending}>
-                  {pending ? "Saving..." : "Save Changes"}
-                </button>
+                {editingBhajan.status === "pending" ? (
+                  <>
+                    <button
+                      onClick={() => handleSaveBhajan(false, "pending")}
+                      className="btn btn-ghost border border-line text-xs !px-4 !py-1.5 font-semibold text-ink"
+                      disabled={pending}
+                    >
+                      {pending ? "Saving..." : "Save as Pending"}
+                    </button>
+                    <button
+                      onClick={() => handleSaveBhajan(false, "approved")}
+                      className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold"
+                      disabled={pending}
+                    >
+                      {pending ? "Saving..." : "Save & Approve"}
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => handleSaveBhajan(false, "approved")} className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold" disabled={pending}>
+                    {pending ? "Saving..." : editingBhajan.id ? "Save Changes" : "Add Bhajan"}
+                  </button>
+                )}
               </div>
             </motion.div>
           </div>

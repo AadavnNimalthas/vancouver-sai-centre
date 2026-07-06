@@ -706,6 +706,7 @@ export async function editBhajan(
     sourceLink?: string | null;
     audioUrl?: string | null;
     videoUrl?: string | null;
+    status?: "pending" | "approved" | "rejected";
   }
 ): Promise<ActionResult> {
   await guard("wing-lead");
@@ -734,7 +735,7 @@ export async function editBhajan(
         sourceLink: patch.sourceLink ?? null,
         audioUrl: patch.audioUrl ?? null,
         videoUrl: patch.videoUrl ?? null,
-        status: "approved",
+        status: patch.status ?? "approved",
         createdAt: new Date().toISOString(),
       });
     }
@@ -757,7 +758,7 @@ export async function editBhajan(
     source_link: patch.sourceLink || null,
     audio_url: patch.audioUrl || null,
     video_url: patch.videoUrl || null,
-    status: "approved",
+    status: patch.status || "approved",
   };
 
   const { error } = id
