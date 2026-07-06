@@ -42,6 +42,22 @@ export interface SaiEvent {
   formId: string | null;
   registeredCount: number;
   published: boolean;
+  createdBy?: string | null;
+  wing?: WingSlug | null;
+}
+
+export interface FormShare {
+  id: string;
+  generalFormId: string | null;
+  bhajanFormId: string | null;
+  userId: string;
+  sharedBy: string | null;
+  createdAt: string;
+}
+
+export interface FormShareWithUser extends FormShare {
+  userName: string;
+  userEmail: string;
 }
 
 export type Role =
@@ -221,6 +237,8 @@ export interface SaiForm {
   published: boolean;
   updatedAt: string;
   attachedEventIds: string[];
+  createdBy?: string | null;
+  wing?: WingSlug | null;
 }
 
 /** A member's answers to a published stand-alone form. */
@@ -341,6 +359,8 @@ export interface BhajanSignUpForm {
   allowedBeats: string[];
   published: boolean;
   createdAt: string;
+  createdBy?: string | null;
+  wing?: WingSlug | null;
 }
 
 export interface BhajanSubmission {

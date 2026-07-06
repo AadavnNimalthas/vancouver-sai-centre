@@ -21,12 +21,17 @@ export default async function AdminBhajansPage() {
     getBhajans(false), // Fetch pending/archived too
   ]);
 
-  // Load submissions for all forms in parallel
+  // Load submissions and shares for all forms in parallel
   const submissionsMap: Record<string, BhajanSubmission[]> = {};
+  const sharesMap: Record<string, any[]> = {};
   await Promise.all(
     forms.map(async (form) => {
-      const subs = await getBhajanSubmissions(form.id);
+      const [subs, shares] = await Promise.all([
+        getBhajanSubmissions(form.id),
+        import("@/lib/data").then(m => m.getFormShares(form.id, true))
+      ]);
       submissionsMap[form.id] = subs;
+      sharesMap[form.id] = shares;
     })
   );
 
@@ -49,6 +54,7 @@ export default async function AdminBhajansPage() {
         <BhajanCoordinatorConsole
           forms={forms}
           submissionsMap={submissionsMap}
+          sharesMap={sharesMap}
           pendingBhajans={pendingBhajans}
           allBhajans={approvedBhajans}
         />

@@ -10,6 +10,7 @@ import type {
   BhajanSubmission,
   Book,
   FormResponse,
+  FormShare,
   Post,
   Profile,
   Registration,
@@ -46,6 +47,7 @@ export interface LocalDb {
   submissions: BhajanSubmission[];
   favorites: { userId: string; bhajanId: string }[];
   formResponses: FormResponse[];
+  formShares: FormShare[];
 }
 
 const STORE_VERSION = 2;
@@ -133,6 +135,7 @@ function initialDb(): LocalDb {
     submissions: [],
     favorites: [],
     formResponses: [],
+    formShares: [],
   };
 }
 

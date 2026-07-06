@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CategoryChip } from "@/components/EventCard";
 import { getAllEvents } from "@/lib/data";
 import { formatShortDate } from "@/lib/format";
+import { DeleteEventButton } from "@/components/admin/DeleteEventButton";
 
 export const metadata: Metadata = { title: "Event manager" };
 
@@ -61,10 +62,11 @@ export default async function AdminEventsPage() {
                     {e.published ? "Published" : "Draft"}
                   </span>
                 </td>
-                <td className="text-right">
+                <td className="text-right flex items-center justify-end gap-3">
                   <Link href={`/admin/events/${e.id}`} className="link-editorial text-[0.85rem]">
                     Manage
                   </Link>
+                  <DeleteEventButton eventId={e.id} />
                 </td>
               </tr>
             ))}

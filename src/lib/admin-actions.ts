@@ -109,30 +109,111 @@ export async function saveEvent(input: EventInput): Promise<ActionResult> {
   const { error } = input.id
     ? await supabase.from("events").update(row).eq("id", input.id)
     : await supabase.from("events").insert(row);
-  if (error) return { ok: false, message: `Could not save the event: ${error.message}` };
 
+  if (error) return { ok: false, message: `Could not save event: ${error.message}` };
+  revalidatePath("/");
   revalidatePath("/events");
   revalidatePath("/admin/events");
   return { ok: true, message: "Event saved." };
 }
 
-export async function deleteEvent(id: string): Promise<ActionResult> {
-  await guard("executive");
+export async function deleteEvent(eventId: string): Promise<ActionResult> {
+  const user = await guard();
+  
   if (!isSupabaseConfigured) {
-    mutateDemoDb((db) => {
-      db.events = db.events.filter((e) => e.id !== id);
-      db.registrations = db.registrations.filter((r) => r.eventId !== id);
+    return mutateDemoDb((db) => {
+      const idx = db.events.findIndex((e) => e.id === eventId);
+      if (idx === -1) return { ok: false, message: "Event not found" };
+      const scopeError = checkWingScope(user, db.events[idx].category);
+      if (scopeError) return { ok: false, message: scopeError };
+      db.events.splice(idx, 1);
+      db.registrations = db.registrations.filter((r) => r.eventId !== eventId);
+      revalidatePath("/");
+      revalidatePath("/events");
+      revalidatePath("/admin/events");
+      return { ok: true, message: "Event deleted." };
     });
-    revalidatePath("/");
-    revalidatePath("/events");
-    revalidatePath("/admin/events");
-    return { ok: true, message: "Event deleted." };
   }
+
   const supabase = await createClient();
-  const { error } = await supabase.from("events").delete().eq("id", id);
-  if (error) return { ok: false, message: "Could not delete the event." };
+  const { data: ev } = await supabase.from("events").select("category").eq("id", eventId).single();
+  if (!ev) return { ok: false, message: "Event not found" };
+
+  const scopeError = checkWingScope(user, ev.category);
+  if (scopeError) return { ok: false, message: scopeError };
+
+  const { error } = await supabase.from("events").delete().eq("id", eventId);
+  if (error) return { ok: false, message: `Could not delete event: ${error.message}` };
+
+  revalidatePath("/");
+  revalidatePath("/events");
   revalidatePath("/admin/events");
   return { ok: true, message: "Event deleted." };
+}
+
+export async function shareForm(formId: string, email: string, isBhajanForm: boolean): Promise<ActionResult> {
+  const user = await guard();
+
+  if (!isSupabaseConfigured) {
+    return mutateDemoDb((db) => {
+      const profile = db.profiles.find((p) => p.email.toLowerCase() === email.toLowerCase());
+      if (!profile) return { ok: false, message: "No account found for that email address." };
+      
+      const share = {
+        id: newId("share"),
+        generalFormId: isBhajanForm ? null : formId,
+        bhajanFormId: isBhajanForm ? formId : null,
+        userId: profile.id,
+        sharedBy: user.id,
+        createdAt: new Date().toISOString()
+      };
+      
+      db.formShares = db.formShares || [];
+      if (!db.formShares.some(s => 
+        (isBhajanForm ? s.bhajanFormId === formId : s.generalFormId === formId) && s.userId === profile.id
+      )) {
+        db.formShares.push(share);
+      }
+      return { ok: true, message: `Shared with ${profile.fullName}` };
+    });
+  }
+
+  const supabase = await createClient();
+  const { data: profile } = await supabase.from("profiles").select("id, full_name").ilike("email", email).maybeSingle();
+  if (!profile) return { ok: false, message: "No account found for that email address." };
+
+  const { error } = await supabase.from("form_shares").insert({
+    general_form_id: isBhajanForm ? null : formId,
+    bhajan_form_id: isBhajanForm ? formId : null,
+    user_id: profile.id,
+    shared_by: user.id,
+  });
+
+  if (error) {
+    if (error.code === '23505') return { ok: true, message: "They already have access to this sheet." };
+    return { ok: false, message: `Could not share form: ${error.message}` };
+  }
+
+  return { ok: true, message: `Shared with ${profile.full_name}` };
+}
+
+export async function revokeFormShare(shareId: string): Promise<ActionResult> {
+  const user = await guard();
+
+  if (!isSupabaseConfigured) {
+    return mutateDemoDb((db) => {
+      if (db.formShares) {
+        db.formShares = db.formShares.filter(s => s.id !== shareId);
+      }
+      return { ok: true, message: "Access revoked." };
+    });
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("form_shares").delete().eq("id", shareId);
+  if (error) return { ok: false, message: "Could not revoke access." };
+  
+  return { ok: true, message: "Access revoked." };
 }
 
 export async function saveForm(input: {

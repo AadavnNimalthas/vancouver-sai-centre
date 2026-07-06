@@ -13,10 +13,13 @@ import {
 } from "@/lib/types";
 import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { ShareFormModal } from "./ShareFormModal";
+import type { FormShareWithUser } from "@/lib/types";
 
 interface BhajanCoordinatorConsoleProps {
   forms: BhajanSignUpForm[];
   submissionsMap: Record<string, BhajanSubmission[]>;
+  sharesMap: Record<string, FormShareWithUser[]>;
   pendingBhajans: Bhajan[];
   allBhajans: Bhajan[];
 }
@@ -24,6 +27,7 @@ interface BhajanCoordinatorConsoleProps {
 export function BhajanCoordinatorConsole({
   forms,
   submissionsMap,
+  sharesMap,
   pendingBhajans: initialPending,
   allBhajans: initialAll,
 }: BhajanCoordinatorConsoleProps) {
@@ -45,8 +49,10 @@ export function BhajanCoordinatorConsole({
 
   // Library search
   const [libSearch, setLibSearch] = useState("");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const currentSubmissions = submissionsMap[selectedFormId] || [];
+  const currentShares = sharesMap[selectedFormId] || [];
 
   // Distinct beat/taal values across the library, for the sign-up form limits
   const distinctBeats = Array.from(
@@ -244,6 +250,12 @@ export function BhajanCoordinatorConsole({
                   <option key={f.id} value={f.id}>{f.title}</option>
                 ))}
               </select>
+              <button 
+                onClick={() => setShareModalOpen(true)}
+                className="btn bg-sand border-line text-ink text-sm py-1.5 px-3"
+              >
+                Share
+              </button>
             </div>
 
             {currentSubmissions.length === 0 ? (

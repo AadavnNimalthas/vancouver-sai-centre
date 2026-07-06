@@ -743,3 +743,40 @@ export async function getAccessRequests(): Promise<AccessRequest[]> {
     .order("created_at", { ascending: false });
   return (data ?? []).map(mapAccessRequest);
 }
+
+export async function getFormShares(formId: string, isBhajanForm: boolean) {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    if (!db.formShares) return [];
+    
+    return db.formShares
+      .filter(s => isBhajanForm ? s.bhajanFormId === formId : s.generalFormId === formId)
+      .map(s => {
+        const profile = db.profiles.find(p => p.id === s.userId);
+        return {
+          ...s,
+          userName: profile?.fullName ?? "Unknown",
+          userEmail: profile?.email ?? ""
+        };
+      });
+  }
+
+  const supabase = await createClient();
+  const column = isBhajanForm ? "bhajan_form_id" : "general_form_id";
+  const { data } = await supabase
+    .from("form_shares")
+    .select("*, profiles(full_name, email)")
+    .eq(column, formId)
+    .order("created_at", { ascending: true });
+    
+  return (data ?? []).map(row => ({
+    id: row.id,
+    generalFormId: row.general_form_id,
+    bhajanFormId: row.bhajan_form_id,
+    userId: row.user_id,
+    sharedBy: row.shared_by,
+    createdAt: row.created_at,
+    userName: row.profiles?.full_name ?? "Unknown",
+    userEmail: row.profiles?.email ?? ""
+  }));
+}
