@@ -32,6 +32,22 @@ function newField(type: FormFieldType): FormField {
   };
 }
 
+/**
+ * Keep default bhajan slot labels ("Bhajan 1", "Bhajan 2", …) numbered by
+ * their position in the form. Only labels still matching the default
+ * pattern are renamed — custom labels are left alone.
+ */
+function renumberBhajanFields(fields: FormField[]): FormField[] {
+  let slot = 0;
+  return fields.map((f) => {
+    if (f.type !== "bhajan-select") return f;
+    slot += 1;
+    if (!/^bhajan\s*#?\d*$/i.test(f.label.trim())) return f;
+    const next = `Bhajan ${slot}`;
+    return f.label === next ? f : { ...f, label: next };
+  });
+}
+
 export function FormBuilder({ form }: { form: SaiForm | null }) {
   const router = useRouter();
   const [title, setTitle] = useState(form?.title ?? "");
@@ -46,13 +62,13 @@ export function FormBuilder({ form }: { form: SaiForm | null }) {
     setFields((fs) => fs.map((f) => (f.id === id ? { ...f, ...patch } : f)));
 
   const removeField = (id: string) => {
-    setFields((fs) => fs.filter((f) => f.id !== id));
+    setFields((fs) => renumberBhajanFields(fs.filter((f) => f.id !== id)));
     if (selected === id) setSelected(null);
   };
 
   const addField = (type: FormFieldType) => {
     const f = newField(type);
-    setFields((fs) => [...fs, f]);
+    setFields((fs) => renumberBhajanFields([...fs, f]));
     setSelected(f.id);
   };
 
@@ -148,7 +164,7 @@ export function FormBuilder({ form }: { form: SaiForm | null }) {
             <Reorder.Group
               axis="y"
               values={fields}
-              onReorder={setFields}
+              onReorder={(next) => setFields(renumberBhajanFields(next))}
               className="mt-6 space-y-3"
             >
               {fields.map((field) => (

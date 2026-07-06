@@ -429,3 +429,56 @@ export async function submitBhajanSignup(input: {
   return { ok: true, message: "Bhajan sign-up submitted successfully!" };
 }
 
+/**
+ * Submit (or update) the signed-in member's answers to a published
+ * stand-alone form opened from the portal.
+ */
+export async function submitFormResponse(input: {
+  formId: string;
+  answers: Record<string, unknown>;
+}): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, message: "Please sign in first." };
+
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    db.formResponses ??= [];
+    const form = db.forms.find((f) => f.id === input.formId && f.published);
+    if (!form) return { ok: false, message: "This form is no longer open." };
+    const idx = db.formResponses.findIndex(
+      (r) => r.formId === input.formId && r.userId === user.id
+    );
+    const response = {
+      id: idx >= 0 ? db.formResponses[idx].id : newId("resp"),
+      formId: input.formId,
+      userId: user.id,
+      userName: user.fullName,
+      userEmail: user.email,
+      answers: input.answers,
+      createdAt: new Date().toISOString(),
+    };
+    if (idx >= 0) db.formResponses[idx] = response;
+    else db.formResponses.push(response);
+    saveDemoDb(db);
+    revalidatePath("/portal/bhajans");
+    return { ok: true, message: "Thank you — your sign-up has been received." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("form_responses").upsert(
+    {
+      form_id: input.formId,
+      user_id: user.id,
+      user_name: user.fullName,
+      user_email: user.email,
+      answers: input.answers,
+      created_at: new Date().toISOString(),
+    },
+    { onConflict: "form_id,user_id" }
+  );
+  if (error) return { ok: false, message: `Could not submit: ${error.message}` };
+
+  revalidatePath("/portal/bhajans");
+  return { ok: true, message: "Thank you — your sign-up has been received." };
+}
+

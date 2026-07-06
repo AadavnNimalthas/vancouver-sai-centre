@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DeleteFormButton } from "@/components/admin/DeleteFormButton";
 import { getAllEvents, getForms } from "@/lib/data";
 import { formatShortDate } from "@/lib/format";
 
@@ -44,9 +45,12 @@ export default async function AdminFormsPage() {
               </span>
             </div>
             <p className="mt-2 text-[0.9rem] text-ink-soft">{f.description}</p>
-            <p className="mt-4 text-[0.8rem] text-ink-faint">
-              {f.fields.length} questions · updated {formatShortDate(f.updatedAt)}
-            </p>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <p className="text-[0.8rem] text-ink-faint">
+                {f.fields.length} questions · updated {formatShortDate(f.updatedAt)}
+              </p>
+              <DeleteFormButton formId={f.id} formTitle={f.title} />
+            </div>
             {f.attachedEventIds.length > 0 && (
               <p className="mt-2 text-[0.8rem] text-ink-soft">
                 Attached to:{" "}

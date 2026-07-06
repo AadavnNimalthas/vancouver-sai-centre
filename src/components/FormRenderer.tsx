@@ -266,6 +266,22 @@ function FieldControl({
  * "Add bhajan" picker: members search the bhajan book (narrowed by any
  * limits the admin set on the question) and pick one.
  */
+/** The second line of the lyrics, shown as subtext to tell variations apart. */
+function bhajanSubtext(b: Bhajan): string {
+  const lines = b.lyrics
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines[1] ?? "";
+}
+
+/** Beat, deity, speed — the fine print on every list row. */
+function bhajanMeta(b: Bhajan): string {
+  return [b.beatTaal || "no beat", b.category, b.tempo.replace(/_/g, " ")]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function BhajanSelectControl({
   field,
   value,
@@ -306,6 +322,8 @@ function BhajanSelectControl({
     filters?.beats?.length ? `beat: ${filters.beats.join(", ")}` : null,
   ].filter(Boolean);
 
+  const selectedBhajan = value ? bhajans.find((b) => b.title === value) : undefined;
+
   return (
     <div>
       <p className="label">
@@ -317,35 +335,46 @@ function BhajanSelectControl({
       )}
 
       {value ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-gold-soft bg-sand/50 px-4 py-3">
-          <span className="font-display text-lg text-ink">{value}</span>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-terra/50 bg-terra/5 px-4 py-3">
+          <span className="min-w-0">
+            <span className="block truncate font-display text-lg text-terra-deep">{value}</span>
+            {selectedBhajan && (
+              <span className="mt-0.5 block text-[0.7rem] uppercase tracking-[0.08em] text-ink-faint">
+                {bhajanMeta(selectedBhajan)}
+              </span>
+            )}
+          </span>
           <button
             type="button"
             onClick={() => {
               onChange(undefined);
               setOpen(true);
             }}
-            className="text-[0.85rem] text-ink-faint underline underline-offset-4 hover:text-terra-deep"
+            className="shrink-0 text-[0.85rem] text-terra-deep underline underline-offset-4 hover:text-terra"
           >
             Change
           </button>
         </div>
       ) : !open ? (
-        <button type="button" onClick={() => setOpen(true)} className="btn btn-quiet">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded-full bg-terra px-5 py-2 text-[0.9rem] font-medium text-white transition-colors hover:bg-terra-deep"
+        >
           + Add bhajan
         </button>
       ) : (
-        <div className="rounded-lg border border-line bg-white-warm p-4">
+        <div className="rounded-lg border border-terra/40 bg-white-warm p-4">
           <input
             type="search"
             autoFocus
             className="field"
-            placeholder="Search by title or a line of the lyrics…"
+            placeholder="Filter the list, or scroll…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search bhajans"
+            aria-label="Filter bhajans"
           />
-          <div className="mt-3 max-h-64 space-y-1 overflow-y-auto">
+          <div className="mt-3 max-h-80 overflow-y-auto" role="listbox" aria-label="Bhajan list">
             {shown.length === 0 && (
               <p className="py-6 text-center text-[0.875rem] text-ink-soft">
                 {allowed.length === 0
@@ -353,28 +382,38 @@ function BhajanSelectControl({
                   : "No bhajans match that search."}
               </p>
             )}
-            {shown.slice(0, 60).map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => {
-                  onChange(b.title);
-                  setOpen(false);
-                  setSearch("");
-                }}
-                className="block w-full rounded px-3 py-2 text-left transition-colors hover:bg-sand"
-              >
-                <span className="font-medium text-ink">{b.title}</span>
-                <span className="ml-2 text-[0.8rem] text-ink-faint">
-                  {[b.category, b.tempo, b.beatTaal].filter(Boolean).join(" · ")}
-                </span>
-              </button>
-            ))}
+            {shown.map((b) => {
+              const subtext = bhajanSubtext(b);
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    onChange(b.title);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                  className="block w-full border-b border-line/60 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-terra/10"
+                >
+                  <span className="block font-medium text-ink">{b.title}</span>
+                  {subtext && (
+                    <span className="mt-0.5 block truncate text-[0.8rem] text-ink-soft">
+                      {subtext}
+                    </span>
+                  )}
+                  <span className="mt-1 block text-[0.7rem] uppercase tracking-[0.08em] text-ink-faint">
+                    {bhajanMeta(b)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="mt-2 text-[0.85rem] text-ink-faint underline underline-offset-4"
+            className="mt-3 text-[0.85rem] text-ink-faint underline underline-offset-4 hover:text-terra-deep"
           >
             Cancel
           </button>

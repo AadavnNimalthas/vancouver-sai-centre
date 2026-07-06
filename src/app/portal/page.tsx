@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getEvents, getPosts, getRegistrationsForUser } from "@/lib/data";
+import { getEvents, getPosts, getRegistrationsForUser, getMyFormResponses, getPublishedForms } from "@/lib/data";
 import { upcomingOccurrences } from "@/lib/recurrence";
 import { formatEventDate, formatEventTime, formatMonthDay, formatShortDate } from "@/lib/format";
 import { INTEREST_TOPICS } from "@/lib/types";
@@ -11,11 +11,13 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function PortalDashboard() {
   const user = (await getCurrentUser())!;
-  const [events, registrations, portalPosts, newsPosts] = await Promise.all([
+  const [events, registrations, portalPosts, newsPosts, formResponses, forms] = await Promise.all([
     getEvents(),
     getRegistrationsForUser(user.id),
     getPosts("portal", true),
     getPosts("announcements", true),
+    getMyFormResponses(user.id),
+    getPublishedForms(),
   ]);
   const seen = new Set<string>();
   const announcements = [...portalPosts, ...newsPosts].filter((p) => {
@@ -25,10 +27,37 @@ export default async function PortalDashboard() {
   });
   const now = new Date();
   const upcoming = upcomingOccurrences(events, now, 3);
-  const active = registrations.filter(
-    (r) =>
-      r.status !== "cancelled" &&
-      (!r.eventStartsAt || new Date(r.eventStartsAt) >= now)
+  
+  const activeRegistrations = registrations
+    .filter(
+      (r) =>
+        r.status !== "cancelled" &&
+        (!r.eventStartsAt || new Date(r.eventStartsAt) >= now)
+    )
+    .map((r) => ({
+      id: r.id,
+      title: r.eventTitle,
+      date: r.eventStartsAt ? formatEventDate(r.eventStartsAt) : null,
+      type: r.kind === "volunteer" ? "Volunteering" : "Attending",
+      status: r.status,
+      createdAt: r.createdAt,
+    }));
+
+  const activeFormResponses = formResponses
+    .map((fr) => {
+      const form = forms.find((f) => f.id === fr.formId);
+      return {
+        id: fr.id,
+        title: form?.title || "Form Submission",
+        date: formatShortDate(fr.createdAt),
+        type: "Form Submission",
+        status: "confirmed" as const,
+        createdAt: fr.createdAt,
+      };
+    });
+
+  const active = [...activeRegistrations, ...activeFormResponses].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -105,13 +134,13 @@ export default async function PortalDashboard() {
             {active.slice(0, 4).map((r) => (
               <div key={r.id} className="card flex flex-wrap items-center justify-between gap-3 p-5">
                 <div>
-                  <p className="font-display text-lg text-ink">{r.eventTitle}</p>
+                  <p className="font-display text-lg text-ink">{r.title}</p>
                   <p className="text-[0.85rem] text-ink-soft">
-                    {r.eventStartsAt && formatEventDate(r.eventStartsAt)} ·{" "}
-                    {r.kind === "volunteer" ? "Volunteering" : "Attending"}
+                    {r.date && `${r.date} · `}
+                    {r.type}
                   </p>
                 </div>
-                <StatusBadge status={r.status} />
+                <StatusBadge status={r.status as any} />
               </div>
             ))}
           </div>

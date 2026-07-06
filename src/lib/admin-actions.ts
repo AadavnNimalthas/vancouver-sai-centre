@@ -188,6 +188,27 @@ export async function saveForm(input: {
   return { ok: true, message: "Form saved." };
 }
 
+export async function deleteForm(id: string): Promise<ActionResult> {
+  await guard();
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      db.forms = db.forms.filter((f) => f.id !== id);
+      // an event whose form is deleted simply has no form attached anymore
+      db.events = db.events.map((e) =>
+        e.formId === id ? { ...e, formId: null } : e
+      );
+    });
+    revalidatePath("/admin/forms");
+    return { ok: true, message: "Form deleted." };
+  }
+  const supabase = await createClient();
+  // events.form_id is ON DELETE SET NULL, so attached events detach cleanly
+  const { error } = await supabase.from("forms").delete().eq("id", id);
+  if (error) return { ok: false, message: "Could not delete the form." };
+  revalidatePath("/admin/forms");
+  return { ok: true, message: "Form deleted." };
+}
+
 export async function sendAnnouncement(input: {
   title: string;
   body: string;

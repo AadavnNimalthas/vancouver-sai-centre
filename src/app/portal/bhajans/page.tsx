@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getBhajanSignUpForms, getMyBhajans, getFavoriteBhajanIds, getBhajanSubmissionsForUser } from "@/lib/data";
+import { getBhajanSignUpForms, getMyBhajans, getFavoriteBhajanIds, getBhajanSubmissionsForUser, getMyFormResponses, getPublishedForms } from "@/lib/data";
 import { BhajanFormCard } from "@/components/portal/BhajanFormCard";
+import { GeneralFormCard } from "@/components/portal/GeneralFormCard";
 import { BhajanHistoryList } from "@/components/portal/BhajanHistoryList";
 import { Reveal } from "@/components/Reveal";
 
@@ -14,9 +15,11 @@ export default async function PortalBhajansPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Fetch signup forms, submissions, favorites
-  const [allForms, myBhajans, favoriteIds, submissions] = await Promise.all([
+  // Fetch signup forms, published builder forms, submissions, favorites
+  const [allForms, publishedForms, myResponses, myBhajans, favoriteIds, submissions] = await Promise.all([
     getBhajanSignUpForms(true), // Only published
+    getPublishedForms(), // Forms pushed from the form builder
+    getMyFormResponses(user.id),
     getMyBhajans(user.id),
     getFavoriteBhajanIds(user.id),
     getBhajanSubmissionsForUser(user.id),
@@ -24,6 +27,7 @@ export default async function PortalBhajansPage() {
 
   // Map submissions to forms for checking submission state
   const submissionsMap = new Map(submissions.map((s) => [s.formId, s]));
+  const responsesMap = new Map(myResponses.map((r) => [r.formId, r]));
 
   // Separate active (now between open and close) and closed
   const now = new Date();

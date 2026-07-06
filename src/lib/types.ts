@@ -223,6 +223,17 @@ export interface SaiForm {
   attachedEventIds: string[];
 }
 
+/** A member's answers to a published stand-alone form. */
+export interface FormResponse {
+  id: string;
+  formId: string;
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+  answers: Record<string, unknown>;
+  createdAt: string;
+}
+
 export const INTEREST_TOPICS = [
   { value: "devotional", label: "Devotional programs" },
   { value: "study-circle", label: "Study Circle" },

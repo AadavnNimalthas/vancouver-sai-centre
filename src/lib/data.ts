@@ -11,6 +11,7 @@ import type {
   BhajanSignUpForm,
   BhajanSubmission,
   Book,
+  FormResponse,
   Post,
   PostPlacement,
   Profile,
@@ -299,6 +300,50 @@ export async function getForms(): Promise<SaiForm[]> {
     .select("*")
     .order("updated_at", { ascending: false });
   return (data ?? []).map(mapForm);
+}
+
+/** Published forms members can open straight from the portal. */
+export async function getPublishedForms(): Promise<SaiForm[]> {
+  const forms = await getForms();
+  return forms.filter((f) => f.published);
+}
+
+function mapFormResponse(row: any): FormResponse {
+  return {
+    id: row.id,
+    formId: row.form_id,
+    userId: row.user_id,
+    userName: row.user_name ?? "",
+    userEmail: row.user_email ?? "",
+    answers: row.answers ?? {},
+    createdAt: row.created_at,
+  };
+}
+
+/** All responses for one form — coordinator/admin view. */
+export async function getFormResponses(formId: string): Promise<FormResponse[]> {
+  if (!isSupabaseConfigured)
+    return getDemoDb().formResponses.filter((r) => r.formId === formId);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("form_responses")
+    .select("*")
+    .eq("form_id", formId)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map(mapFormResponse);
+}
+
+/** The signed-in member's own responses across all forms. */
+export async function getMyFormResponses(userId: string): Promise<FormResponse[]> {
+  if (!isSupabaseConfigured)
+    return getDemoDb().formResponses.filter((r) => r.userId === userId);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("form_responses")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return (data ?? []).map(mapFormResponse);
 }
 
 /* ------------------------------------------------------------------ */

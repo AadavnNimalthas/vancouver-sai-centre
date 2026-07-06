@@ -9,6 +9,7 @@ import type {
   BhajanSignUpForm,
   BhajanSubmission,
   Book,
+  FormResponse,
   Post,
   Profile,
   Registration,
@@ -44,6 +45,7 @@ export interface LocalDb {
   signupForms: BhajanSignUpForm[];
   submissions: BhajanSubmission[];
   favorites: { userId: string; bhajanId: string }[];
+  formResponses: FormResponse[];
 }
 
 const STORE_VERSION = 2;
@@ -130,6 +132,7 @@ function initialDb(): LocalDb {
     signupForms: [],
     submissions: [],
     favorites: [],
+    formResponses: [],
   };
 }
 
@@ -147,6 +150,8 @@ export function getDemoDb(): LocalDb {
       saveDemoDb(db);
       return db;
     }
+    // Fields added after the store was created default to empty.
+    raw.formResponses ??= [];
     return raw;
   } catch (error) {
     console.error("Error reading local db store:", error);
