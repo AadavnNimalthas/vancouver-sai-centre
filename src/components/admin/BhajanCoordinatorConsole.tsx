@@ -258,7 +258,9 @@ export function BhajanCoordinatorConsole({
                           return (
                             <div key={field.id} className="p-3 rounded bg-sand/20 border border-line/40 text-xs">
                               <p className="font-semibold text-ink-faint">{field.label}</p>
-                              <p className="font-display font-bold text-ink mt-1 text-sm">{bh.title}</p>
+                              <a href={`/library/bhajans/${bh.id}`} target="_blank" rel="noopener noreferrer" className="font-display font-bold text-terra hover:text-terra-deep hover:underline mt-1 text-sm block">
+                                {bh.title}
+                              </a>
                               <p className="text-ink-soft mt-0.5">{bh.category} · {bh.language} · {bh.tempo.replace("_", " ")}</p>
                               {bh.status === "pending" && (
                                 <span className="inline-block text-[0.6rem] font-bold text-terra uppercase mt-1">Pending Approval</span>
