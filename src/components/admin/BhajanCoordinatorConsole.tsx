@@ -505,12 +505,30 @@ export function BhajanCoordinatorConsole({
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => setEditingForm(f)}
-                      className="btn btn-ghost border border-line text-xs !px-3 !py-1"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingForm(f)}
+                        className="btn btn-ghost border border-line text-xs !px-3 !py-1"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`Are you sure you want to delete "${f.title}"?`)) {
+                            const { deleteBhajanSignUpForm } = await import("@/lib/admin-actions");
+                            const res = await deleteBhajanSignUpForm(f.id);
+                            if (res.ok) {
+                              window.location.reload();
+                            } else {
+                              alert(res.message);
+                            }
+                          }
+                        }}
+                        className="btn btn-ghost border border-red-200 text-red-700 hover:bg-red-50 text-xs !px-3 !py-1"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

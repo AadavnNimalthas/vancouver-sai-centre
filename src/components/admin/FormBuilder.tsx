@@ -13,7 +13,16 @@ import {
   type FormField,
   type FormFieldType,
   type SaiForm,
+  type WingSlug,
 } from "@/lib/types";
+
+const WING_OPTIONS: { label: string; value: WingSlug | "" }[] = [
+  { label: "Centre-wide (General)", value: "" },
+  { label: "Devotional", value: "devotional" },
+  { label: "Service", value: "service" },
+  { label: "Education", value: "education" },
+  { label: "Young Adults", value: "young-adults" },
+];
 
 const OPTION_TYPES: FormFieldType[] = ["dropdown", "radio", "checkbox"];
 
@@ -53,6 +62,7 @@ export function FormBuilder({ form }: { form: SaiForm | null }) {
   const [title, setTitle] = useState(form?.title ?? "");
   const [description, setDescription] = useState(form?.description ?? "");
   const [fields, setFields] = useState<FormField[]>(form?.fields ?? []);
+  const [wing, setWing] = useState<WingSlug | "">(form?.wing ?? "");
   const [selected, setSelected] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [message, setMessage] = useState("");
@@ -80,6 +90,7 @@ export function FormBuilder({ form }: { form: SaiForm | null }) {
       description,
       fields,
       published: publish,
+      wing: wing || null,
     });
     setMessage(result.message);
     setBusy(false);
@@ -94,6 +105,7 @@ export function FormBuilder({ form }: { form: SaiForm | null }) {
     published: false,
     updatedAt: "",
     attachedEventIds: [],
+    wing: wing || null,
   };
 
   return (
@@ -153,6 +165,24 @@ export function FormBuilder({ form }: { form: SaiForm | null }) {
                 onChange={(e) => setDescription(e.target.value)}
                 aria-label="Form description"
               />
+              
+              <div className="mt-6 border-t border-line/40 pt-6">
+                <label className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2 block">
+                  Category / Wing
+                </label>
+                <select
+                  className="field max-w-sm"
+                  value={wing}
+                  onChange={(e) => setWing(e.target.value as WingSlug | "")}
+                >
+                  {WING_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-ink-soft mt-1.5">
+                  Select which wing this form belongs to, for organizational purposes.
+                </p>
+              </div>
             </div>
 
             {fields.length === 0 && (

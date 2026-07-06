@@ -222,8 +222,9 @@ export async function saveForm(input: {
   description: string;
   fields: FormField[];
   published: boolean;
+  wing: string | null;
 }): Promise<ActionResult> {
-  await guard();
+  const user = await guard();
   if (!isSupabaseConfigured) {
     mutateDemoDb((db) => {
       if (input.id) {
@@ -236,6 +237,7 @@ export async function saveForm(input: {
             fields: input.fields,
             published: input.published,
             updatedAt: new Date().toISOString(),
+            wing: input.wing as any,
           };
       } else {
         db.forms.push({
@@ -246,6 +248,8 @@ export async function saveForm(input: {
           published: input.published,
           updatedAt: new Date().toISOString(),
           attachedEventIds: [],
+          wing: input.wing as any,
+          createdBy: user.id,
         });
       }
     });
@@ -260,7 +264,13 @@ export async function saveForm(input: {
     fields: input.fields,
     published: input.published,
     updated_at: new Date().toISOString(),
+    wing: input.wing,
   };
+  
+  if (!input.id) {
+    (row as any).created_by = user.id;
+  }
+  
   const { error } = input.id
     ? await supabase.from("forms").update(row).eq("id", input.id)
     : await supabase.from("forms").insert(row);
@@ -699,7 +709,7 @@ export async function saveBhajanSignUpForm(input: {
     saveDemoDb(db);
     revalidatePath("/portal/bhajans");
     revalidatePath("/admin/bhajans");
-    return { ok: true, message: "Sign-up form saved successfully!" };
+    return { ok: true, message: "Bhajan sign-up form saved." };
   }
 
   const supabase = await createClient();
@@ -717,13 +727,36 @@ export async function saveBhajanSignUpForm(input: {
 
   const { error } = input.id
     ? await supabase.from("bhajan_signup_forms").update(row).eq("id", input.id)
-    : await supabase.from("bhajan_signup_forms").insert(row);
+    : await supabase.from("bhajan_signup_forms").insert({ ...row, created_by: user.id });
 
   if (error) return { ok: false, message: `Could not save form: ${error.message}` };
 
-  revalidatePath("/portal/bhajans");
   revalidatePath("/admin/bhajans");
-  return { ok: true, message: "Sign-up form saved successfully!" };
+  revalidatePath("/portal/bhajans");
+  return { ok: true, message: "Bhajan sign-up form saved." };
+}
+
+export async function deleteBhajanSignUpForm(id: string): Promise<ActionResult> {
+  await guard();
+  
+  if (!isSupabaseConfigured) {
+    mutateDemoDb((db) => {
+      if (db.signupForms) db.signupForms = db.signupForms.filter((f) => f.id !== id);
+      db.submissions = db.submissions.filter((s) => s.formId !== id);
+    });
+    revalidatePath("/admin/bhajans");
+    revalidatePath("/portal/bhajans");
+    return { ok: true, message: "Form deleted." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("bhajan_signup_forms").delete().eq("id", id);
+  
+  if (error) return { ok: false, message: `Could not delete form: ${error.message}` };
+
+  revalidatePath("/admin/bhajans");
+  revalidatePath("/portal/bhajans");
+  return { ok: true, message: "Form deleted." };
 }
 
 export async function updateBhajanStatus(
