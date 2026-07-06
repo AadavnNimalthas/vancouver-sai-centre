@@ -273,30 +273,45 @@ export function BhajanSelector({
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex border-b border-line gap-4 text-xs font-semibold overflow-x-auto pb-1">
+                    <div className="flex border-b border-line gap-4 text-xs font-semibold overflow-x-auto pb-1 items-center justify-between">
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => setActiveTab("all")}
+                          className={`pb-2 transition-colors ${activeTab === "all" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                        >
+                          All Library
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("fav")}
+                          className={`pb-2 transition-colors ${activeTab === "fav" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                        >
+                          My Favourites ({myBhajans.favorites.length})
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("recent")}
+                          className={`pb-2 transition-colors ${activeTab === "recent" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                        >
+                          Recently Used ({myBhajans.recentlyUsed.length})
+                        </button>
+                        <button
+                          onClick={() => setActiveTab("suggest")}
+                          className={`pb-2 transition-colors ${activeTab === "suggest" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                        >
+                          My Suggestions ({myBhajans.submitted.length})
+                        </button>
+                      </div>
                       <button
-                        onClick={() => setActiveTab("all")}
-                        className={`pb-2 transition-colors ${activeTab === "all" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                        onClick={() => {
+                          setSuggestMode("manual");
+                          setTitle("");
+                          setLyrics("");
+                          setMeaning("");
+                          setNotes("");
+                          setError("");
+                        }}
+                        className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold shrink-0 mb-3"
                       >
-                        All Library
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("fav")}
-                        className={`pb-2 transition-colors ${activeTab === "fav" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
-                      >
-                        My Favourites ({myBhajans.favorites.length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("recent")}
-                        className={`pb-2 transition-colors ${activeTab === "recent" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
-                      >
-                        Recently Used ({myBhajans.recentlyUsed.length})
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("suggest")}
-                        className={`pb-2 transition-colors ${activeTab === "suggest" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
-                      >
-                        My Suggestions ({myBhajans.submitted.length})
+                        + Suggest a Bhajan
                       </button>
                     </div>
 
