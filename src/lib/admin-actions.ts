@@ -671,7 +671,7 @@ export async function saveBhajanSignUpForm(input: {
   allowedBeats: string[];
   published: boolean;
 }): Promise<ActionResult> {
-  await guard("executive");
+  const user = await guard("executive");
 
   if (!isSupabaseConfigured) {
     const db = getDemoDb();
