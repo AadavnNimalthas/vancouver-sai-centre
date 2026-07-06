@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/admin/posts", label: "Posts" },
   { href: "/admin/events", label: "Events" },
   { href: "/admin/forms", label: "Forms" },
+  { href: "/admin/bhajans", label: "Bhajans" },
   { href: "/admin/site", label: "Site content" },
   { href: "/admin/notifications", label: "Notifications" },
   { href: "/admin/users", label: "Members" },

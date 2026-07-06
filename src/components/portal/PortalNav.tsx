@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/portal/calendar", label: "Calendar" },
   { href: "/portal/registrations", label: "My registrations" },
   { href: "/portal/volunteering", label: "Volunteering" },
+  { href: "/portal/bhajans", label: "Bhajans" },
   { href: "/portal/notifications", label: "Notifications" },
   { href: "/portal/resources", label: "Resources" },
 ];

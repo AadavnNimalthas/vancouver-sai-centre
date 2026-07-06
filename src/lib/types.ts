@@ -203,15 +203,46 @@ export interface Resource {
 export interface Bhajan {
   id: string;
   title: string;
+  lyrics: string;
   meaning: string;
-  language: string;
   tempo: "slow" | "medium" | "fast";
+  beatTaal: string;
+  language: string;
   category: string;
   notes: string;
-  lyrics: string;
+  sourceLink?: string | null;
   audioUrl: string | null;
   videoUrl: string | null;
+  status: "pending" | "approved" | "rejected" | "archived";
+  createdBy?: string | null;
+  additionalMetadata?: Record<string, any>;
+  createdAt?: string;
 }
+
+export interface BhajanSignUpForm {
+  id: string;
+  title: string;
+  description: string;
+  openDate: string;
+  closeDate: string;
+  bhajansRequired: number;
+  allowedCategories: string[];
+  published: boolean;
+  createdAt: string;
+}
+
+export interface BhajanSubmission {
+  id: string;
+  formId: string;
+  userId: string;
+  bhajanIds: string[];
+  createdAt: string;
+  // Join fields for display
+  userName?: string;
+  userEmail?: string;
+  bhajans?: Bhajan[];
+}
+
 
 export interface Album {
   id: string;

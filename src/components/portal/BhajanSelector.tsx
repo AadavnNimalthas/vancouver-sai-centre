@@ -1,0 +1,438 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import type { Bhajan } from "@/lib/types";
+import { CymRhythmImporter } from "../library/CymRhythmImporter";
+import { submitBhajan } from "@/lib/actions";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface BhajanSelectorProps {
+  slotName: string;
+  selectedBhajanId: string | null;
+  onSelect: (bhajan: Bhajan | null) => void;
+  allBhajans: Bhajan[];
+  myBhajans: {
+    favorites: Bhajan[];
+    recentlyUsed: Bhajan[];
+    submitted: Bhajan[];
+  };
+  allowedCategories: string[];
+}
+
+export function BhajanSelector({
+  slotName,
+  selectedBhajanId,
+  onSelect,
+  allBhajans,
+  myBhajans,
+  allowedCategories,
+}: BhajanSelectorProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "fav" | "recent" | "suggest">("all");
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [suggestMode, setSuggestMode] = useState<"none" | "manual" | "import">("none");
+
+  // New bhajan manual suggest states
+  const [title, setTitle] = useState("");
+  const [lyrics, setLyrics] = useState("");
+  const [meaning, setMeaning] = useState("");
+  const [tempo, setTempo] = useState<"slow" | "medium" | "fast">("medium");
+  const [beatTaal, setBeatTaal] = useState("");
+  const [language, setLanguage] = useState("Sanskrit");
+  const [category, setCategory] = useState(allowedCategories[0] || "Sai");
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const selectedBhajan = allBhajans.find((b) => b.id === selectedBhajanId);
+
+  // Categories list based on allowed categories or all unique categories
+  const categoriesList = allowedCategories.length > 0
+    ? allowedCategories
+    : Array.from(new Set(allBhajans.map((b) => b.category).filter(Boolean))).sort();
+
+  // Filter list
+  let currentList: Bhajan[] = [];
+  if (activeTab === "all") {
+    currentList = allBhajans;
+  } else if (activeTab === "fav") {
+    currentList = myBhajans.favorites;
+  } else if (activeTab === "recent") {
+    currentList = myBhajans.recentlyUsed;
+  } else if (activeTab === "suggest") {
+    currentList = myBhajans.submitted;
+  }
+
+  // Filter by allowed categories
+  if (allowedCategories.length > 0) {
+    currentList = currentList.filter((b) => allowedCategories.includes(b.category));
+  }
+
+  // Filter by search and selected category
+  const filteredList = currentList.filter((b) => {
+    const matchesSearch =
+      b.title.toLowerCase().includes(search.toLowerCase()) ||
+      b.lyrics.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = selectedCategory ? b.category === selectedCategory : true;
+    return matchesSearch && matchesCategory;
+  });
+
+  function handleSelect(bhajan: Bhajan) {
+    onSelect(bhajan);
+    setIsOpen(false);
+    resetSearchState();
+  }
+
+  function resetSearchState() {
+    setSearch("");
+    setSelectedCategory("");
+    setActiveTab("all");
+    setSuggestMode("none");
+    setError("");
+  }
+
+  function handleSuggestManual() {
+    if (!title || !lyrics || !meaning || !category || !beatTaal) {
+      setError("Title, lyrics, meaning, category, and beat/taal are required.");
+      return;
+    }
+    setError("");
+    startTransition(async () => {
+      const res = await submitBhajan({
+        title,
+        lyrics,
+        meaning,
+        tempo,
+        beatTaal,
+        language,
+        category,
+        notes,
+      });
+
+      if (res.ok && res.insertedId) {
+        // Auto-select the newly suggested bhajan (with local state)
+        const mockNewBhajan: Bhajan = {
+          id: res.insertedId,
+          title,
+          lyrics,
+          meaning,
+          tempo,
+          beatTaal,
+          language,
+          category,
+          notes,
+          status: "pending",
+          audioUrl: null,
+          videoUrl: null,
+        };
+        onSelect(mockNewBhajan);
+        setIsOpen(false);
+        resetSearchState();
+      } else {
+        setError(res.message);
+      }
+    });
+  }
+
+  return (
+    <div className="card p-5 border-line bg-white-warm">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="eyebrow block text-xs">{slotName}</span>
+          {selectedBhajan ? (
+            <div className="mt-1">
+              <span className="font-display text-lg font-semibold text-ink">{selectedBhajan.title}</span>
+              <span className="ml-2.5 inline-block text-[0.8rem] text-ink-faint">
+                ({selectedBhajan.category} · {selectedBhajan.language})
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-faint mt-1 italic">No bhajan selected yet.</p>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          {selectedBhajan && (
+            <button
+              onClick={() => onSelect(null)}
+              className="btn btn-ghost !px-3 !py-1 text-xs border border-line"
+            >
+              Clear Selection
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setIsOpen(true);
+              resetSearchState();
+            }}
+            className="btn btn-primary !px-4 !py-1.5 text-xs font-semibold"
+          >
+            {selectedBhajan ? "Change Bhajan" : "Search Library"}
+          </button>
+        </div>
+      </div>
+
+      {/* Modal Dialog */}
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="card relative w-full max-w-2xl bg-cream max-h-[85vh] flex flex-col justify-between overflow-hidden shadow-lift"
+            >
+              {/* Header */}
+              <div className="border-b border-line px-6 py-4 flex items-center justify-between">
+                <h3 className="font-display text-xl font-bold text-ink">
+                  {suggestMode === "manual"
+                    ? "Suggest New Bhajan"
+                    : suggestMode === "import"
+                    ? "Import from CymRhythm"
+                    : `Select Bhajan for ${slotName}`}
+                </h3>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="text-ink-soft hover:text-ink text-2xl leading-none"
+                  aria-label="Close modal"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                {suggestMode === "none" && (
+                  <>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <div className="flex-1">
+                        <input
+                          type="search"
+                          placeholder="Search title, lyrics..."
+                          className="field"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="sm:w-48">
+                        <select
+                          className="field"
+                          value={selectedCategory}
+                          onChange={(e) => setSelectedCategory(e.target.value)}
+                        >
+                          <option value="">All Allowed Categories</option>
+                          {categoriesList.map((cat) => (
+                            <option key={cat} value={cat}>
+                              {cat}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tab Navigation */}
+                    <div className="flex border-b border-line gap-4 text-xs font-semibold overflow-x-auto pb-1">
+                      <button
+                        onClick={() => setActiveTab("all")}
+                        className={`pb-2 transition-colors ${activeTab === "all" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                      >
+                        All Library
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("fav")}
+                        className={`pb-2 transition-colors ${activeTab === "fav" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                      >
+                        My Favourites ({myBhajans.favorites.length})
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("recent")}
+                        className={`pb-2 transition-colors ${activeTab === "recent" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                      >
+                        Recently Used ({myBhajans.recentlyUsed.length})
+                      </button>
+                      <button
+                        onClick={() => setActiveTab("suggest")}
+                        className={`pb-2 transition-colors ${activeTab === "suggest" ? "text-terra-deep border-b-2 border-terra" : "text-ink-faint hover:text-ink"}`}
+                      >
+                        My Suggestions ({myBhajans.submitted.length})
+                      </button>
+                    </div>
+
+                    {/* Bhajans List */}
+                    <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
+                      {filteredList.length === 0 ? (
+                        <div className="py-12 text-center">
+                          <p className="text-sm text-ink-soft">No matching bhajans found.</p>
+                          <p className="text-xs text-ink-faint mt-1">If the bhajan doesn't exist, suggest it below.</p>
+                        </div>
+                      ) : (
+                        filteredList.map((b) => (
+                          <div
+                            key={b.id}
+                            onClick={() => handleSelect(b)}
+                            className="p-3 rounded-lg border border-line hover:border-gold hover:bg-sand/10 transition-colors cursor-pointer flex justify-between items-center"
+                          >
+                            <div>
+                              <p className="font-semibold text-ink text-sm sm:text-base">{b.title}</p>
+                              <p className="text-xs text-ink-soft mt-0.5">
+                                {b.category} · {b.language} · {b.tempo} · {b.beatTaal || "No beat set"}
+                              </p>
+                              {b.status === "pending" && (
+                                <span className="inline-block text-[0.65rem] uppercase font-bold text-terra bg-terra/5 border border-terra/20 px-1.5 py-0.5 rounded mt-1">
+                                  Pending Review
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gold font-semibold uppercase tracking-wider">Select</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {suggestMode === "manual" && (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="label">Title *</label>
+                        <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} disabled={pending} />
+                      </div>
+                      <div>
+                        <label className="label">Category *</label>
+                        <select className="field" value={category} onChange={(e) => setCategory(e.target.value)} disabled={pending}>
+                          {categoriesList.map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                          {allowedCategories.length === 0 && (
+                            <>
+                              <option value="Sai">Sai</option>
+                              <option value="Shiva">Shiva</option>
+                              <option value="Krishna">Krishna</option>
+                              <option value="Ganesha">Ganesha</option>
+                              <option value="Devi">Devi</option>
+                              <option value="Guru">Guru</option>
+                              <option value="Sarva Dharma">Sarva Dharma</option>
+                            </>
+                          )}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Language</label>
+                        <input className="field" value={language} onChange={(e) => setLanguage(e.target.value)} disabled={pending} />
+                      </div>
+                      <div>
+                        <label className="label">Beat / Taal *</label>
+                        <input className="field" placeholder="e.g. 8 Beat / Keherwa" value={beatTaal} onChange={(e) => setBeatTaal(e.target.value)} disabled={pending} />
+                      </div>
+                      <div>
+                        <label className="label">Tempo *</label>
+                        <select className="field" value={tempo} onChange={(e: any) => setTempo(e.target.value)} disabled={pending}>
+                          <option value="slow">Slow</option>
+                          <option value="medium">Medium</option>
+                          <option value="fast">Fast</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Lyrics *</label>
+                      <textarea className="field font-mono text-sm leading-relaxed" rows={4} value={lyrics} onChange={(e) => setLyrics(e.target.value)} disabled={pending} />
+                    </div>
+                    <div>
+                      <label className="label">Meaning *</label>
+                      <textarea className="field text-sm" rows={2.5} value={meaning} onChange={(e) => setMeaning(e.target.value)} disabled={pending} />
+                    </div>
+                    <div>
+                      <label className="label">Practice Notes (Optional)</label>
+                      <input className="field" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={pending} />
+                    </div>
+                    {error && <p className="text-sm text-terra font-medium">{error}</p>}
+                  </div>
+                )}
+
+                {suggestMode === "import" && (
+                  <CymRhythmImporter
+                    onClose={() => setSuggestMode("none")}
+                    onSuccess={(msg) => {
+                      // We handle auto-selection inside success callback by fetching latest suggested bhajans
+                      // In this component, CymRhythmImporter will suggest the bhajan and trigger onSuccess.
+                      // Since we mock it in CymRhythmImporter.tsx, it'll run revalidate.
+                      // Let's pass parent handler so we can auto-attach.
+                      // To do that, let's look at how to get the ID. CymRhythmImporter returns onSuccess with message.
+                      // For a smooth demo, we'll let the user search and select the newly added item from "My Suggestions".
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-line px-6 py-4 bg-sand/10 flex flex-wrap justify-between items-center gap-3">
+                {suggestMode === "none" ? (
+                  <>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSuggestMode("import")}
+                        className="btn btn-quiet !px-3.5 !py-1.5 text-xs font-semibold"
+                      >
+                        Import from CymRhythm
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSuggestMode("manual");
+                          setTitle("");
+                          setLyrics("");
+                          setMeaning("");
+                          setNotes("");
+                          setError("");
+                        }}
+                        className="btn btn-quiet !px-3.5 !py-1.5 text-xs font-semibold"
+                      >
+                        Suggest Manually
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="btn btn-ghost !px-4 !py-1.5 text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : suggestMode === "manual" ? (
+                  <>
+                    <button
+                      onClick={() => setSuggestMode("none")}
+                      className="btn btn-ghost !px-4 !py-1.5 text-xs"
+                      disabled={pending}
+                    >
+                      Back
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSuggestMode("none")}
+                        className="btn btn-ghost !px-4 !py-1.5 text-xs"
+                        disabled={pending}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSuggestManual}
+                        className="btn btn-primary !px-4 !py-1.5 text-xs font-semibold"
+                        disabled={pending}
+                      >
+                        {pending ? "Submitting..." : "Submit & Select"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  // Handled inside CymRhythmImporter
+                  null
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

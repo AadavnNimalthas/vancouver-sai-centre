@@ -33,6 +33,7 @@ export default async function BhajanPage({
         <div className="mt-10 text-center">
           <p className="eyebrow">
             {bhajan.category} · {bhajan.language} ·{" "}
+            {bhajan.beatTaal ? `${bhajan.beatTaal} · ` : ""}
             <span className="capitalize">{bhajan.tempo}</span> tempo
           </p>
           <h1 className="mt-5 font-display text-5xl leading-[1.1] text-ink sm:text-6xl">
@@ -53,16 +54,21 @@ export default async function BhajanPage({
         </div>
       </Reveal>
 
-      {(bhajan.audioUrl || bhajan.videoUrl) && (
+      {(bhajan.audioUrl || bhajan.videoUrl || bhajan.sourceLink) && (
         <Reveal delay={0.1} className="mt-8 flex justify-center gap-4">
           {bhajan.audioUrl && (
             <a href={bhajan.audioUrl} className="btn btn-quiet" target="_blank" rel="noopener noreferrer">
-              ♪ Listen
+              ♪ Practice Recording
             </a>
           )}
           {bhajan.videoUrl && (
             <a href={bhajan.videoUrl} className="btn btn-quiet" target="_blank" rel="noopener noreferrer">
-              ▸ Watch
+              ▸ Watch Video
+            </a>
+          )}
+          {bhajan.sourceLink && (
+            <a href={bhajan.sourceLink} className="btn btn-quiet" target="_blank" rel="noopener noreferrer">
+              View on CymRhythm
             </a>
           )}
         </Reveal>

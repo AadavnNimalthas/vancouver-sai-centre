@@ -13,11 +13,14 @@ import {
   demoSiteContent,
   demoWings,
 } from "./demo-data";
+import { getDemoDb } from "./demo-db-store";
 import { createClient } from "./supabase/server";
 import type {
   Album,
   Announcement,
   Bhajan,
+  BhajanSignUpForm,
+  BhajanSubmission,
   Post,
   PostPlacement,
   Profile,
@@ -28,6 +31,7 @@ import type {
   SiteContent,
   Wing,
 } from "./types";
+
 
 /* ------------------------------------------------------------------ */
 /* Row mappers: snake_case DB rows → app types                         */
@@ -114,16 +118,49 @@ function mapBhajan(row: any): Bhajan {
   return {
     id: row.id,
     title: row.title,
-    meaning: row.meaning ?? "",
-    language: row.language,
-    tempo: row.tempo,
-    category: row.category,
-    notes: row.notes ?? "",
     lyrics: row.lyrics ?? "",
-    audioUrl: row.audio_url,
-    videoUrl: row.video_url,
+    meaning: row.meaning ?? "",
+    tempo: row.tempo ?? "medium",
+    beatTaal: row.beat_taal ?? "",
+    language: row.language ?? "Sanskrit",
+    category: row.category ?? "",
+    notes: row.notes ?? "",
+    sourceLink: row.source_link ?? null,
+    audioUrl: row.audio_url ?? null,
+    videoUrl: row.video_url ?? null,
+    status: row.status ?? "approved",
+    createdBy: row.created_by ?? null,
+    additionalMetadata: row.additional_metadata ?? {},
+    createdAt: row.created_at,
   };
 }
+
+function mapBhajanSignUpForm(row: any): BhajanSignUpForm {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description ?? "",
+    openDate: row.open_date,
+    closeDate: row.close_date,
+    bhajansRequired: row.bhajans_required ?? 1,
+    allowedCategories: row.allowed_categories ?? [],
+    published: row.published ?? false,
+    createdAt: row.created_at,
+  };
+}
+
+function mapBhajanSubmission(row: any): BhajanSubmission {
+  return {
+    id: row.id,
+    formId: row.form_id,
+    userId: row.user_id,
+    bhajanIds: row.bhajan_ids ?? [],
+    createdAt: row.created_at,
+    userName: row.profiles?.full_name,
+    userEmail: row.profiles?.email,
+  };
+}
+
 
 function mapAlbum(row: any): Album {
   return {
@@ -200,19 +237,206 @@ export async function getForms(): Promise<SaiForm[]> {
   return (data ?? []).map(mapForm);
 }
 
-export async function getBhajans(): Promise<Bhajan[]> {
-  if (!isSupabaseConfigured) return demoBhajans;
+export async function getBhajans(onlyApproved = true): Promise<Bhajan[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const list = db.bhajans;
+    return onlyApproved ? list.filter((b) => b.status === "approved") : list;
+  }
   const supabase = await createClient();
-  const { data } = await supabase.from("bhajans").select("*").order("title");
+  let query = supabase.from("bhajans").select("*");
+  if (onlyApproved) {
+    query = query.eq("status", "approved");
+  }
+  const { data } = await query.order("title");
   return (data ?? []).map(mapBhajan);
 }
 
 export async function getBhajan(id: string): Promise<Bhajan | null> {
-  if (!isSupabaseConfigured) return demoBhajans.find((b) => b.id === id) ?? null;
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    return db.bhajans.find((b) => b.id === id) ?? null;
+  }
   const supabase = await createClient();
   const { data } = await supabase.from("bhajans").select("*").eq("id", id).single();
   return data ? mapBhajan(data) : null;
 }
+
+export async function getBhajanCategories(): Promise<string[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const approved = db.bhajans.filter((b) => b.status === "approved");
+    const categories = approved.map((b) => b.category).filter(Boolean);
+    return Array.from(new Set(categories)).sort();
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bhajans")
+    .select("category")
+    .eq("status", "approved");
+  const categories = (data ?? []).map((row) => row.category).filter(Boolean);
+  return Array.from(new Set(categories)).sort();
+}
+
+export async function getBhajanSignUpForms(onlyPublished = true): Promise<BhajanSignUpForm[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const list = db.signupForms;
+    return onlyPublished ? list.filter((f) => f.published) : list;
+  }
+  const supabase = await createClient();
+  let query = supabase.from("bhajan_signup_forms").select("*");
+  if (onlyPublished) {
+    query = query.eq("published", true);
+  }
+  const { data } = await query.order("close_date", { ascending: true });
+  return (data ?? []).map(mapBhajanSignUpForm);
+}
+
+export async function getBhajanSignUpForm(id: string): Promise<BhajanSignUpForm | null> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    return db.signupForms.find((f) => f.id === id) ?? null;
+  }
+  const supabase = await createClient();
+  const { data } = await supabase.from("bhajan_signup_forms").select("*").eq("id", id).single();
+  return data ? mapBhajanSignUpForm(data) : null;
+}
+
+export async function getFavoriteBhajanIds(userId: string): Promise<string[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    return db.favorites.filter((f) => f.userId === userId).map((f) => f.bhajanId);
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("member_bhajan_favorites")
+    .select("bhajan_id")
+    .eq("user_id", userId);
+  return (data ?? []).map((f) => f.bhajan_id);
+}
+
+export async function getBhajanSubmissions(formId: string): Promise<BhajanSubmission[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const list = db.submissions.filter((s) => s.formId === formId);
+    return list.map((sub) => {
+      const profile = demoProfiles.find((p) => p.id === sub.userId);
+      const bhajans = sub.bhajanIds
+        .map((bid) => db.bhajans.find((b) => b.id === bid))
+        .filter(Boolean) as Bhajan[];
+      return {
+        ...sub,
+        userName: profile?.fullName ?? "Demo Member",
+        userEmail: profile?.email ?? "member@example.com",
+        bhajans,
+      };
+    });
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bhajan_submissions")
+    .select("*, profiles(full_name, email)")
+    .eq("form_id", formId)
+    .order("created_at", { ascending: false });
+
+  const submissions = (data ?? []).map(mapBhajanSubmission);
+  
+  const allBhajanIds = Array.from(new Set(submissions.flatMap((s) => s.bhajanIds)));
+  if (allBhajanIds.length > 0) {
+    const { data: bData } = await supabase.from("bhajans").select("*").in("id", allBhajanIds);
+    const bhMap = new Map((bData ?? []).map((row) => [row.id, mapBhajan(row)]));
+    submissions.forEach((s) => {
+      s.bhajans = s.bhajanIds.map((bid) => bhMap.get(bid)).filter(Boolean) as Bhajan[];
+    });
+  }
+  return submissions;
+}
+
+export async function getBhajanSubmissionsForUser(userId: string): Promise<BhajanSubmission[]> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const list = db.submissions.filter((s) => s.userId === userId);
+    return list.map((sub) => ({
+      ...sub,
+      bhajans: sub.bhajanIds
+        .map((bid) => db.bhajans.find((b) => b.id === bid))
+        .filter(Boolean) as Bhajan[],
+    }));
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bhajan_submissions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  const submissions = (data ?? []).map(mapBhajanSubmission);
+  const allBhajanIds = Array.from(new Set(submissions.flatMap((s) => s.bhajanIds)));
+  if (allBhajanIds.length > 0) {
+    const { data: bData } = await supabase.from("bhajans").select("*").in("id", allBhajanIds);
+    const bhMap = new Map((bData ?? []).map((row) => [row.id, mapBhajan(row)]));
+    submissions.forEach((s) => {
+      s.bhajans = s.bhajanIds.map((bid) => bhMap.get(bid)).filter(Boolean) as Bhajan[];
+    });
+  }
+  return submissions;
+}
+
+export async function getMyBhajans(userId: string): Promise<{
+  favorites: Bhajan[];
+  recentlyUsed: Bhajan[];
+  submitted: Bhajan[];
+}> {
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const favIds = db.favorites.filter((f) => f.userId === userId).map((f) => f.bhajanId);
+    const favorites = db.bhajans.filter((b) => favIds.includes(b.id));
+    
+    const userSubs = db.submissions.filter((s) => s.userId === userId);
+    const recentIds = Array.from(new Set(userSubs.flatMap((s) => s.bhajanIds)));
+    const recentlyUsed = db.bhajans.filter((b) => recentIds.includes(b.id));
+
+    const submitted = db.bhajans.filter((b) => b.createdBy === userId);
+
+    return { favorites, recentlyUsed, submitted };
+  }
+
+  const supabase = await createClient();
+  
+  const { data: favData } = await supabase
+    .from("member_bhajan_favorites")
+    .select("bhajans(*)")
+    .eq("user_id", userId);
+  const favorites = (favData ?? []).map((row: any) => mapBhajan(row.bhajans)).filter(Boolean);
+
+  const { data: subData } = await supabase
+    .from("bhajan_submissions")
+    .select("bhajan_ids")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const recentIds = Array.from(new Set((subData ?? []).flatMap((row) => row.bhajan_ids)));
+  
+  let recentlyUsed: Bhajan[] = [];
+  if (recentIds.length > 0) {
+    const { data: recBhajans } = await supabase
+      .from("bhajans")
+      .select("*")
+      .in("id", recentIds);
+    recentlyUsed = (recBhajans ?? []).map(mapBhajan);
+  }
+
+  const { data: subBhajans } = await supabase
+    .from("bhajans")
+    .select("*")
+    .eq("created_by", userId)
+    .order("title");
+  const submitted = (subBhajans ?? []).map(mapBhajan);
+
+  return { favorites, recentlyUsed, submitted };
+}
+
 
 export async function getResources(): Promise<Resource[]> {
   if (!isSupabaseConfigured) return demoResources;

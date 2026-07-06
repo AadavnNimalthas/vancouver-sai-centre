@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "./config";
 import { requireRole } from "./auth";
 import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
+import { getDemoDb, saveDemoDb } from "./demo-db-store";
 import type { ActionResult } from "./actions";
 import type {
   FormField,
@@ -13,7 +14,10 @@ import type {
   Role,
   SiteContent,
   Wing,
+  Bhajan,
+  BhajanSignUpForm,
 } from "./types";
+
 
 async function guard(minimum: Role = "wing-lead") {
   const user = await requireRole(minimum);
@@ -321,3 +325,183 @@ export async function deleteResource(id: string): Promise<ActionResult> {
   revalidatePath("/admin/resources");
   return { ok: true, message: "Resource removed." };
 }
+
+export async function saveBhajanSignUpForm(input: {
+  id?: string;
+  title: string;
+  description: string;
+  openDate: string;
+  closeDate: string;
+  bhajansRequired: number;
+  allowedCategories: string[];
+  published: boolean;
+}): Promise<ActionResult> {
+  await guard("executive");
+
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    if (input.id) {
+      const idx = db.signupForms.findIndex((f) => f.id === input.id);
+      if (idx >= 0) {
+        db.signupForms[idx] = {
+          ...db.signupForms[idx],
+          title: input.title,
+          description: input.description,
+          openDate: input.openDate,
+          closeDate: input.closeDate,
+          bhajansRequired: input.bhajansRequired,
+          allowedCategories: input.allowedCategories,
+          published: input.published,
+        };
+      }
+    } else {
+      db.signupForms.push({
+        id: `f-${Date.now()}`,
+        title: input.title,
+        description: input.description,
+        openDate: input.openDate,
+        closeDate: input.closeDate,
+        bhajansRequired: input.bhajansRequired,
+        allowedCategories: input.allowedCategories,
+        published: input.published,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    saveDemoDb(db);
+    revalidatePath("/portal/bhajans");
+    revalidatePath("/admin/bhajans");
+    return { ok: true, message: "Sign-up form saved successfully!" };
+  }
+
+  const supabase = await createClient();
+  const row = {
+    title: input.title,
+    description: input.description,
+    open_date: input.openDate,
+    close_date: input.closeDate,
+    bhajans_required: input.bhajansRequired,
+    allowed_categories: input.allowedCategories,
+    published: input.published,
+  };
+
+  const { error } = input.id
+    ? await supabase.from("bhajan_signup_forms").update(row).eq("id", input.id)
+    : await supabase.from("bhajan_signup_forms").insert(row);
+
+  if (error) return { ok: false, message: `Could not save form: ${error.message}` };
+
+  revalidatePath("/portal/bhajans");
+  revalidatePath("/admin/bhajans");
+  return { ok: true, message: "Sign-up form saved successfully!" };
+}
+
+export async function updateBhajanStatus(
+  bhajanId: string,
+  status: "approved" | "rejected" | "archived"
+): Promise<ActionResult> {
+  await guard("wing-lead");
+
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const idx = db.bhajans.findIndex((b) => b.id === bhajanId);
+    if (idx >= 0) {
+      db.bhajans[idx].status = status;
+      saveDemoDb(db);
+    }
+    revalidatePath("/library/bhajans");
+    revalidatePath("/admin/bhajans");
+    return { ok: true, message: `Bhajan status updated to ${status}.` };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bhajans")
+    .update({ status })
+    .eq("id", bhajanId);
+
+  if (error) return { ok: false, message: `Could not update status: ${error.message}` };
+
+  revalidatePath("/library/bhajans");
+  revalidatePath("/admin/bhajans");
+  return { ok: true, message: `Bhajan status updated to ${status}.` };
+}
+
+export async function editBhajan(
+  id: string,
+  patch: {
+    title: string;
+    lyrics: string;
+    meaning: string;
+    tempo: "slow" | "medium" | "fast";
+    beatTaal: string;
+    language: string;
+    category: string;
+    notes: string;
+    sourceLink?: string | null;
+    audioUrl?: string | null;
+    videoUrl?: string | null;
+  }
+): Promise<ActionResult> {
+  await guard("wing-lead");
+
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    const idx = db.bhajans.findIndex((b) => b.id === id);
+    if (idx >= 0) {
+      db.bhajans[idx] = {
+        ...db.bhajans[idx],
+        ...patch,
+      };
+      saveDemoDb(db);
+    }
+    revalidatePath("/library/bhajans");
+    revalidatePath("/admin/bhajans");
+    return { ok: true, message: "Bhajan updated successfully!" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("bhajans")
+    .update({
+      title: patch.title,
+      lyrics: patch.lyrics,
+      meaning: patch.meaning,
+      tempo: patch.tempo,
+      beat_taal: patch.beatTaal,
+      language: patch.language,
+      category: patch.category,
+      notes: patch.notes,
+      source_link: patch.sourceLink || null,
+      audio_url: patch.audioUrl || null,
+      video_url: patch.videoUrl || null,
+    })
+    .eq("id", id);
+
+  if (error) return { ok: false, message: `Could not update bhajan: ${error.message}` };
+
+  revalidatePath("/library/bhajans");
+  revalidatePath("/admin/bhajans");
+  return { ok: true, message: "Bhajan updated successfully!" };
+}
+
+export async function deleteBhajan(id: string): Promise<ActionResult> {
+  await guard("wing-lead");
+
+  if (!isSupabaseConfigured) {
+    const db = getDemoDb();
+    db.bhajans = db.bhajans.filter((b) => b.id !== id);
+    saveDemoDb(db);
+    revalidatePath("/library/bhajans");
+    revalidatePath("/admin/bhajans");
+    return { ok: true, message: "Bhajan deleted successfully." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("bhajans").delete().eq("id", id);
+  if (error) return { ok: false, message: `Could not delete bhajan: ${error.message}` };
+
+  revalidatePath("/library/bhajans");
+  revalidatePath("/admin/bhajans");
+  return { ok: true, message: "Bhajan deleted successfully." };
+}
+

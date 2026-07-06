@@ -431,7 +431,6 @@ export const demoForms: SaiForm[] = [
       { id: "r2", type: "email", label: "Email", helpText: "", required: true, options: [] },
       { id: "r3", type: "number", label: "Family members attending", helpText: "", required: true, options: [] },
       { id: "r4", type: "dropdown", label: "Accommodation preference", helpText: "", required: true, options: ["Shared lodge room", "Family cabin", "Day visitor (no overnight)"] },
-      { id: "r5", type: "long-text", label: "Dietary requirements", helpText: "All meals are vegetarian. Note allergies here.", required: false, options: [] },
       { id: "r6", type: "file", label: "Signed waiver (PDF)", helpText: "Download the waiver from the Resources page.", required: true, options: [] },
     ],
   },
@@ -444,12 +443,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "I take refuge in Lord Ganesha, remover of obstacles.",
     language: "Sanskrit",
     tempo: "medium",
+    beatTaal: "8 Beat / Keherwa",
     category: "Ganesha",
     notes: "Traditional opening bhajan. Begin slowly, double the tempo on the repeat.",
     lyrics:
       "Ganesha Sharanam Sharanam Ganesha\nGanesha Sharanam Sharanam Ganesha\nGam Gam Ganapathi Sharanam Ganesha\nGam Gam Ganapathi Sharanam Ganesha\nJai Ganesha Jai Jai Gananatha",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-2",
@@ -457,12 +458,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "Chanting the name of Sai Ram, embodiment of truth.",
     language: "Sanskrit",
     tempo: "medium",
+    beatTaal: "8 Beat / Keherwa",
     category: "Sai",
     notes: "A centre favourite. Invite the congregation to clap on the fast repeat.",
     lyrics:
       "Om Sai Ram Om Sai Ram\nSathya Sai Ram Om Sai Ram\nOm Sai Ram Om Sai Ram\nParthi Vihari Om Sai Ram\nPrema Swaroopa Om Sai Ram",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-3",
@@ -470,12 +473,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "Salutations to Lord Subrahmanya, the six-faced divine general.",
     language: "Sanskrit",
     tempo: "fast",
+    beatTaal: "8 Beat / Keherwa",
     category: "Subrahmanya",
     notes: "Builds quickly. Watch the lead singer for the tempo change.",
     lyrics:
       "Subrahmanyam Subrahmanyam\nShanmukhanatha Subrahmanyam\nShiva Shiva Shiva Shiva Subrahmanyam\nHara Hara Hara Hara Subrahmanyam",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-4",
@@ -483,12 +488,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "O Shiva, Shankara, I bow to you, bestower of auspiciousness.",
     language: "Sanskrit",
     tempo: "slow",
+    beatTaal: "8 Beat / Keherwa",
     category: "Shiva",
     notes: "Meditative. Keep the harmonium soft under the first verse.",
     lyrics:
       "He Shiva Shankara Namami Shankara\nShiva Shankara Shambho\nHe Girijapathi Bhavani Shankara\nShiva Shankara Shambho",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-5",
@@ -496,12 +503,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "Chanting the names of Rama and Sita together.",
     language: "Sanskrit",
     tempo: "medium",
+    beatTaal: "8 Beat / Keherwa",
     category: "Rama",
     notes: "",
     lyrics:
       "Rama Rama Rama Sita\nRama Nama Bhajare\nKrishna Krishna Krishna Radha\nKrishna Nama Bhajare",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-6",
@@ -509,12 +518,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "Victory to Govinda, victory to Krishna.",
     language: "Sanskrit",
     tempo: "fast",
+    beatTaal: "8 Beat / Keherwa",
     category: "Krishna",
     notes: "Good for children’s sessions. Simple call and response.",
     lyrics:
       "Govinda Krishna Jai\nGopala Krishna Jai\nGopala Bala Bala Radha\nKrishna Jai\nGovinda Krishna Jai\nGopala Krishna Jai",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-7",
@@ -522,12 +533,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "Salutations to Shiva, the five-syllable mantra.",
     language: "Sanskrit",
     tempo: "slow",
+    beatTaal: "8 Beat / Keherwa",
     category: "Shiva",
     notes: "Often used to close the session before aarti.",
     lyrics:
       "Om Namah Shivaya\nOm Namah Shivaya\nOm Namah Shivaya\nShivaya Namah Om\nHara Hara Hara Hara Namah Shivaya",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-8",
@@ -535,12 +548,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "God is great. A bhajan honouring the unity of all faiths.",
     language: "Urdu",
     tempo: "medium",
+    beatTaal: "8 Beat / Keherwa",
     category: "Sarva Dharma",
     notes: "Sung during interfaith programs and Sarva Dharma celebrations.",
     lyrics:
       "Allah Ho Akbar Allah Ho Akbar\nLa Ilaha Illallah\nMaula Salim Ala Ho Akbar\nLa Ilaha Illallah",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-9",
@@ -548,12 +563,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "A song of Baba’s message in English.",
     language: "English",
     tempo: "slow",
+    beatTaal: "8 Beat / Keherwa",
     category: "Sai",
     notes: "English bhajan. Often sung at public programs for newcomers.",
     lyrics:
       "Love is my form, Truth is my breath\nBliss is my food\nMy life is my message\nExpansion is my life\nNo season for love, No reason for love\nNo birth, no death",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
   {
     id: "bh-10",
@@ -561,12 +578,14 @@ export const demoBhajans: Bhajan[] = [
     meaning: "Victory to the leader of the ganas, Lord Ganesha.",
     language: "Sanskrit",
     tempo: "fast",
+    beatTaal: "8 Beat / Keherwa",
     category: "Ganesha",
     notes: "",
     lyrics:
       "Jai Jai Jai Gananayaka\nJai Jai Vighna Vinashaka\nJai Shubhakara Jai Mangala Kara\nJai Jai Vidya Buddhi Pradayaka",
     audioUrl: null,
     videoUrl: null,
+    status: "approved",
   },
 ];
 
