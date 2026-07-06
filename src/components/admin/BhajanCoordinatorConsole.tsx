@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { updateBhajanStatus, saveBhajanSignUpForm, editBhajan, deleteBhajan } from "@/lib/admin-actions";
 import { formatShortDate } from "@/lib/format";
-import type { Bhajan, BhajanSignUpForm, BhajanSubmission } from "@/lib/types";
+import type { Bhajan, BhajanSignUpForm, BhajanSubmission, BhajanTempo } from "@/lib/types";
+import { BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
+import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface BhajanCoordinatorConsoleProps {
@@ -33,6 +35,7 @@ export function BhajanCoordinatorConsole({
 
   // Editing bhajan state
   const [editingBhajan, setEditingBhajan] = useState<Bhajan | null>(null);
+  const [variationConfirm, setVariationConfirm] = useState<Bhajan | null>(null);
 
   // Library search
   const [libSearch, setLibSearch] = useState("");
@@ -84,12 +87,38 @@ export function BhajanCoordinatorConsole({
     });
   }
 
-  function handleSaveBhajan() {
+  function handleSaveBhajan(bypassCheck: boolean | React.MouseEvent = false) {
     if (!editingBhajan) return;
+    if (!editingBhajan.title || !editingBhajan.lyrics || !editingBhajan.meaning || !editingBhajan.category || !editingBhajan.beatTaal) {
+      alert("Title, lyrics, meaning, category, and beat/taal are required.");
+      return;
+    }
+
+    const formattedLyrics = capitalizeEachWord(editingBhajan.lyrics);
+    const shouldBypass = typeof bypassCheck === "boolean" ? bypassCheck : false;
+
+    // Only run duplicate checks when creating a new bhajan
+    if (!editingBhajan.id && !shouldBypass) {
+      const { exactDuplicate, variationDuplicate } = checkDuplicateBhajan(
+        editingBhajan.title,
+        formattedLyrics,
+        bhajansList
+      );
+      if (exactDuplicate) {
+        alert(`This exact bhajan already exists in the library under the title '${exactDuplicate.title}'.`);
+        return;
+      }
+      if (variationDuplicate) {
+        setVariationConfirm(variationDuplicate);
+        return;
+      }
+    }
+
+    setVariationConfirm(null);
     startTransition(async () => {
       const res = await editBhajan(editingBhajan.id, {
         title: editingBhajan.title,
-        lyrics: editingBhajan.lyrics,
+        lyrics: formattedLyrics,
         meaning: editingBhajan.meaning,
         tempo: editingBhajan.tempo,
         beatTaal: editingBhajan.beatTaal,
@@ -100,10 +129,15 @@ export function BhajanCoordinatorConsole({
       });
 
       if (res.ok) {
-        setBhajansList((prev) =>
-          prev.map((b) => (b.id === editingBhajan.id ? editingBhajan : b))
-        );
-        setEditingBhajan(null);
+        if (!editingBhajan.id) {
+          // New bhajan added - reload page to fetch newly added bhajan
+          window.location.reload();
+        } else {
+          setBhajansList((prev) =>
+            prev.map((b) => (b.id === editingBhajan.id ? { ...editingBhajan, lyrics: formattedLyrics } : b))
+          );
+          setEditingBhajan(null);
+        }
       } else {
         alert(res.message);
       }
@@ -220,7 +254,7 @@ export function BhajanCoordinatorConsole({
                         <div key={bh.id} className="p-3 rounded bg-sand/20 border border-line/40 text-xs">
                           <p className="font-semibold text-ink-faint">Slot #{i + 1}</p>
                           <p className="font-display font-bold text-ink mt-1 text-sm">{bh.title}</p>
-                          <p className="text-ink-soft mt-0.5">{bh.category} · {bh.language} · {bh.tempo}</p>
+                          <p className="text-ink-soft mt-0.5">{bh.category} · {bh.language} · {bh.tempo.replace("_", " ")}</p>
                           {bh.status === "pending" && (
                             <span className="inline-block text-[0.6rem] font-bold text-terra uppercase mt-1">Pending Approval</span>
                           )}
@@ -248,7 +282,7 @@ export function BhajanCoordinatorConsole({
                     <div>
                       <h4 className="font-display text-xl font-bold text-ink">{bh.title}</h4>
                       <p className="text-xs text-ink-soft mt-1">
-                        Category: **{bh.category}** · Language: **{bh.language}** · Tempo: **{bh.tempo}** · Beat: **{bh.beatTaal || "Not specified"}**
+                        Category: **{bh.category}** · Language: **{bh.language}** · Tempo: **{bh.tempo.replace("_", " ")}** · Beat: **{bh.beatTaal || "Not specified"}**
                       </p>
                     </div>
 
@@ -508,7 +542,7 @@ export function BhajanCoordinatorConsole({
                   {editingBhajan.id ? "Edit Bhajan Details" : "Add New Bhajan"}
                 </h3>
                 <button
-                  onClick={() => setEditingBhajan(null)}
+                  onClick={() => { setEditingBhajan(null); setVariationConfirm(null); }}
                   className="text-ink-soft hover:text-ink text-2xl leading-none"
                 >
                   &times;
@@ -527,11 +561,19 @@ export function BhajanCoordinatorConsole({
                   </div>
                   <div>
                     <label className="label">Deity / Category *</label>
-                    <input
+                    <select
                       className="field"
                       value={editingBhajan.category}
                       onChange={(e) => setEditingBhajan({ ...editingBhajan, category: e.target.value })}
-                    />
+                    >
+                      <option value="">Select Deity / Category</option>
+                      {(editingBhajan.category && !BHAJAN_DEITY_OPTIONS.includes(editingBhajan.category as any)
+                        ? [...BHAJAN_DEITY_OPTIONS, editingBhajan.category].sort()
+                        : BHAJAN_DEITY_OPTIONS
+                      ).map((deity) => (
+                        <option key={deity} value={deity}>{deity}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="label">Language</label>
@@ -554,11 +596,13 @@ export function BhajanCoordinatorConsole({
                     <select
                       className="field"
                       value={editingBhajan.tempo}
-                      onChange={(e) => setEditingBhajan({ ...editingBhajan, tempo: e.target.value as "slow" | "medium" | "fast" })}
+                      onChange={(e) => setEditingBhajan({ ...editingBhajan, tempo: e.target.value as BhajanTempo })}
                     >
-                      <option value="slow">Slow</option>
-                      <option value="medium">Medium</option>
-                      <option value="fast">Fast</option>
+                      {BHAJAN_TEMPO_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -599,10 +643,33 @@ export function BhajanCoordinatorConsole({
                     onChange={(e) => setEditingBhajan({ ...editingBhajan, notes: e.target.value })}
                   />
                 </div>
+                {variationConfirm && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm space-y-2 mt-4">
+                    <p>
+                      A bhajan with a similar title or lyrics already exists: <strong>{variationConfirm.title}</strong>. Is this a new variation?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveBhajan(true)}
+                        className="px-2.5 py-1 bg-amber-600 text-white rounded text-xs font-semibold hover:bg-amber-700 transition-colors"
+                      >
+                        Yes, save as variation
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVariationConfirm(null)}
+                        className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
+                      >
+                        No, it's the same
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-line px-6 py-4 bg-sand/10 flex justify-end gap-2">
-                <button onClick={() => setEditingBhajan(null)} className="btn btn-ghost text-xs !px-4 !py-1.5" disabled={pending}>
+                <button onClick={() => { setEditingBhajan(null); setVariationConfirm(null); }} className="btn btn-ghost text-xs !px-4 !py-1.5" disabled={pending}>
                   Cancel
                 </button>
                 <button onClick={handleSaveBhajan} className="btn btn-primary text-xs !px-4 !py-1.5 font-semibold" disabled={pending}>

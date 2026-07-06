@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Bhajan } from "@/lib/types";
+import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
+import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { SaiRhythmsImporter } from "../library/SaiRhythmsImporter";
 import { submitBhajan } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,20 +38,21 @@ export function BhajanSelector({
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [meaning, setMeaning] = useState("");
-  const [tempo, setTempo] = useState<"slow" | "medium" | "fast">("medium");
+  const [tempo, setTempo] = useState<BhajanTempo>("medium");
   const [beatTaal, setBeatTaal] = useState("");
   const [language, setLanguage] = useState("Sanskrit");
   const [category, setCategory] = useState(allowedCategories[0] || "Sai");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [variationConfirm, setVariationConfirm] = useState<Bhajan | null>(null);
 
   const selectedBhajan = allBhajans.find((b) => b.id === selectedBhajanId);
 
-  // Categories list based on allowed categories or all unique categories
+  // Categories list based on allowed categories or all deity options
   const categoriesList = allowedCategories.length > 0
     ? allowedCategories
-    : Array.from(new Set(allBhajans.map((b) => b.category).filter(Boolean))).sort();
+    : BHAJAN_DEITY_OPTIONS;
 
   // Filter list
   let currentList: Bhajan[] = [];
@@ -90,18 +92,36 @@ export function BhajanSelector({
     setActiveTab("all");
     setSuggestMode("none");
     setError("");
+    setVariationConfirm(null);
   }
 
-  function handleSuggestManual() {
+  function handleSuggestManual(bypassCheck: boolean | React.MouseEvent = false) {
     if (!title || !lyrics || !meaning || !category || !beatTaal) {
-      setError("Title, lyrics, meaning, category, and beat/taal are required.");
+      setError("Please fill in all required fields.");
       return;
     }
     setError("");
+
+    const formattedLyrics = capitalizeEachWord(lyrics);
+    const shouldBypass = typeof bypassCheck === "boolean" ? bypassCheck : false;
+
+    if (!shouldBypass) {
+      const { exactDuplicate, variationDuplicate } = checkDuplicateBhajan(title, formattedLyrics, allBhajans);
+      if (exactDuplicate) {
+        setError(`This exact bhajan already exists in the library under the title '${exactDuplicate.title}'.`);
+        return;
+      }
+      if (variationDuplicate) {
+        setVariationConfirm(variationDuplicate);
+        return;
+      }
+    }
+
+    setVariationConfirm(null);
     startTransition(async () => {
       const res = await submitBhajan({
         title,
-        lyrics,
+        lyrics: formattedLyrics,
         meaning,
         tempo,
         beatTaal,
@@ -115,7 +135,7 @@ export function BhajanSelector({
         const mockNewBhajan: Bhajan = {
           id: res.insertedId,
           title,
-          lyrics,
+          lyrics: formattedLyrics,
           meaning,
           tempo,
           beatTaal,
@@ -171,7 +191,16 @@ export function BhajanSelector({
             {selectedBhajan ? "Change Bhajan" : "Search Library"}
           </button>
         </div>
-      </div>
+        {selectedBhajan && (
+        <div className="mt-2 text-xs text-ink-soft bg-sand/10 border border-line/30 p-2.5 rounded max-w-lg leading-relaxed">
+          <p className="font-semibold text-ink-faint uppercase tracking-wider text-[0.65rem] mb-1">Lyrics Preview</p>
+          <p className="font-mono whitespace-pre-wrap italic">
+            {selectedBhajan.lyrics.split("\n").slice(0, 3).join("\n")}
+            {selectedBhajan.lyrics.split("\n").length > 3 ? " ..." : ""}
+          </p>
+        </div>
+      )}
+    </div>
 
       {/* Modal Dialog */}
       <AnimatePresence>
@@ -276,7 +305,11 @@ export function BhajanSelector({
                             <div>
                               <p className="font-semibold text-ink text-sm sm:text-base">{b.title}</p>
                               <p className="text-xs text-ink-soft mt-0.5">
-                                {b.category} · {b.language} · {b.tempo} · {b.beatTaal || "No beat set"}
+                                {b.category} · {b.language} · {b.tempo.replace("_", " ")} · {b.beatTaal || "No beat set"}
+                              </p>
+                              <p className="text-xs font-mono text-ink-soft/85 mt-1.5 italic bg-sand/15 p-1.5 rounded border border-line/20 whitespace-pre-wrap max-w-lg leading-relaxed">
+                                {b.lyrics.split("\n").slice(0, 2).join("\n")}
+                                {b.lyrics.split("\n").length > 2 ? " ..." : ""}
                               </p>
                               {b.status === "pending" && (
                                 <span className="inline-block text-[0.65rem] uppercase font-bold text-terra bg-terra/5 border border-terra/20 px-1.5 py-0.5 rounded mt-1">
@@ -302,20 +335,13 @@ export function BhajanSelector({
                       <div>
                         <label className="label">Category *</label>
                         <select className="field" value={category} onChange={(e) => setCategory(e.target.value)} disabled={pending}>
-                          {categoriesList.map((cat) => (
+                          <option value="">Select Deity / Category</option>
+                          {(category && !categoriesList.includes(category as any)
+                            ? [...categoriesList, category].sort()
+                            : categoriesList
+                          ).map((cat) => (
                             <option key={cat} value={cat}>{cat}</option>
                           ))}
-                          {allowedCategories.length === 0 && (
-                            <>
-                              <option value="Sai">Sai</option>
-                              <option value="Shiva">Shiva</option>
-                              <option value="Krishna">Krishna</option>
-                              <option value="Ganesha">Ganesha</option>
-                              <option value="Devi">Devi</option>
-                              <option value="Guru">Guru</option>
-                              <option value="Sarva Dharma">Sarva Dharma</option>
-                            </>
-                          )}
                         </select>
                       </div>
                       <div>
@@ -328,10 +354,12 @@ export function BhajanSelector({
                       </div>
                       <div>
                         <label className="label">Tempo *</label>
-                        <select className="field" value={tempo} onChange={(e) => setTempo(e.target.value as "slow" | "medium" | "fast")} disabled={pending}>
-                          <option value="slow">Slow</option>
-                          <option value="medium">Medium</option>
-                          <option value="fast">Fast</option>
+                        <select className="field" value={tempo} onChange={(e) => setTempo(e.target.value as BhajanTempo)} disabled={pending}>
+                          {BHAJAN_TEMPO_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -348,6 +376,29 @@ export function BhajanSelector({
                       <input className="field" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={pending} />
                     </div>
                     {error && <p className="text-sm text-terra font-medium">{error}</p>}
+                    {variationConfirm && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm space-y-2">
+                        <p>
+                          A bhajan with a similar title or lyrics already exists: <strong>{variationConfirm.title}</strong>. Is this a new variation?
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSuggestManual(true)}
+                            className="px-2.5 py-1 bg-amber-600 text-white rounded text-xs font-semibold hover:bg-amber-700 transition-colors"
+                          >
+                            Yes, save as variation
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setVariationConfirm(null)}
+                            className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
+                          >
+                            No, it's the same
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -362,6 +413,7 @@ export function BhajanSelector({
                       // To do that, let's look at how to get the ID. SaiRhythmsImporter returns onSuccess with message.
                       // For a smooth demo, we'll let the user search and select the newly added item from "My Suggestions".
                     }}
+                    bhajans={allBhajans}
                   />
                 )}
               </div>

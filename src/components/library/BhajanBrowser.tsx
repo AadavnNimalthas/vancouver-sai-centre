@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { FilterChip } from "@/components/events/EventsExplorer";
-import type { Bhajan } from "@/lib/types";
+import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
+import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { SaiRhythmsImporter } from "./SaiRhythmsImporter";
 import { submitBhajan } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TEMPO_GLYPH: Record<Bhajan["tempo"], string> = {
+  meliodic: "♫",
   slow: "●○○",
   medium: "●●○",
   fast: "●●●",
+  very_fast: "●●●●",
 };
 
 export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[]; signedIn?: boolean }) {
@@ -31,13 +34,14 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [meaning, setMeaning] = useState("");
-  const [tempoInput, setTempoInput] = useState<"slow" | "medium" | "fast">("medium");
+  const [tempoInput, setTempoInput] = useState<BhajanTempo>("medium");
   const [beatInput, setBeatInput] = useState("");
   const [langInput, setLangInput] = useState("Sanskrit");
   const [catInput, setCatInput] = useState("Sai");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [variationConfirm, setVariationConfirm] = useState<Bhajan | null>(null);
 
   const languages = useMemo(
     () => [...new Set(bhajans.map((b) => b.language))].filter(Boolean).sort(),
@@ -87,16 +91,33 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     return result;
   }, [bhajans, query, language, tempo, category, beatTaal, sortBy]);
 
-  function handleSuggestManual() {
+  function handleSuggestManual(bypassCheck: boolean | React.MouseEvent = false) {
     if (!title || !lyrics || !meaning || !catInput || !beatInput) {
-      setError("Title, lyrics, meaning, category (theme), and beat/taal are required.");
+      setError("Please fill in all required fields.");
       return;
     }
     setError("");
+
+    const formattedLyrics = capitalizeEachWord(lyrics);
+    const shouldBypass = typeof bypassCheck === "boolean" ? bypassCheck : false;
+
+    if (!shouldBypass) {
+      const { exactDuplicate, variationDuplicate } = checkDuplicateBhajan(title, formattedLyrics, bhajans);
+      if (exactDuplicate) {
+        setError(`This exact bhajan already exists in the library under the title '${exactDuplicate.title}'.`);
+        return;
+      }
+      if (variationDuplicate) {
+        setVariationConfirm(variationDuplicate);
+        return;
+      }
+    }
+
+    setVariationConfirm(null);
     startTransition(async () => {
       const res = await submitBhajan({
         title,
-        lyrics,
+        lyrics: formattedLyrics,
         meaning,
         tempo: tempoInput,
         beatTaal: beatInput,
@@ -126,6 +147,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     setCatInput("Sai");
     setNotes("");
     setError("");
+    setVariationConfirm(null);
     setSuggestMode("none");
   }
 
@@ -177,9 +199,9 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
             
             <FilterRow label="Tempo">
               <FilterChip active={tempo === "all"} onClick={() => setTempo("all")}>All</FilterChip>
-              {(["slow", "medium", "fast"] as const).map((t) => (
-                <FilterChip key={t} active={tempo === t} onClick={() => setTempo(t)}>
-                  {t[0].toUpperCase() + t.slice(1)}
+              {BHAJAN_TEMPO_OPTIONS.map((opt) => (
+                <FilterChip key={opt.value} active={tempo === opt.value} onClick={() => setTempo(opt.value)}>
+                  {opt.label}
                 </FilterChip>
               ))}
             </FilterRow>
@@ -330,7 +352,17 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                       </div>
                       <div>
                         <label className="label">Deity / Category *</label>
-                        <input className="field" placeholder="e.g. Shiva, Krishna, Sai" value={catInput} onChange={(e) => setCatInput(e.target.value)} disabled={pending} />
+                        <select
+                          className="field"
+                          value={catInput}
+                          onChange={(e) => setCatInput(e.target.value)}
+                          disabled={pending}
+                        >
+                          <option value="">Select Deity / Category</option>
+                          {BHAJAN_DEITY_OPTIONS.map((deity) => (
+                            <option key={deity} value={deity}>{deity}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="label">Language</label>
@@ -342,10 +374,17 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                       </div>
                       <div>
                         <label className="label">Tempo *</label>
-                        <select className="field" value={tempoInput} onChange={(e) => setTempoInput(e.target.value as "slow" | "medium" | "fast")} disabled={pending}>
-                          <option value="slow">Slow</option>
-                          <option value="medium">Medium</option>
-                          <option value="fast">Fast</option>
+                        <select
+                          className="field"
+                          value={tempoInput}
+                          onChange={(e) => setTempoInput(e.target.value as BhajanTempo)}
+                          disabled={pending}
+                        >
+                          {BHAJAN_TEMPO_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -362,6 +401,29 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                       <input className="field" placeholder="Notes for singers/instrumentalists" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={pending} />
                     </div>
                     {error && <p className="text-sm text-terra font-medium">{error}</p>}
+                    {variationConfirm && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm space-y-2">
+                        <p>
+                          A bhajan with a similar title or lyrics already exists: <strong>{variationConfirm.title}</strong>. Is this a new variation?
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSuggestManual(true)}
+                            className="px-2.5 py-1 bg-amber-600 text-white rounded text-xs font-semibold hover:bg-amber-700 transition-colors"
+                          >
+                            Yes, save as variation
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setVariationConfirm(null)}
+                            className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
+                          >
+                            No, it's the same
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -373,6 +435,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                       setSuggestOpen(false);
                       setTimeout(() => setSuccessMessage(""), 5000);
                     }}
+                    bhajans={bhajans}
                   />
                 )}
               </div>

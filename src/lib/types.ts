@@ -257,12 +257,42 @@ export interface Resource {
   createdAt: string;
 }
 
+export const BHAJAN_DEITY_OPTIONS = [
+  "Allah",
+  "Anjaneya",
+  "Ayyappa",
+  "Buddha",
+  "Devi",
+  "Ganesha",
+  "Guru",
+  "Jehovah",
+  "Jesus",
+  "Krishna",
+  "Narayana",
+  "Rama",
+  "Sai",
+  "Sarva Dharma",
+  "Shiva",
+  "Subrahmanya",
+  "Vittala"
+] as const;
+
+export const BHAJAN_TEMPO_OPTIONS = [
+  { value: "meliodic", label: "Meliodic" },
+  { value: "slow", label: "Slow" },
+  { value: "medium", label: "Medium" },
+  { value: "fast", label: "Fast" },
+  { value: "very_fast", label: "Very Fast" }
+] as const;
+
+export type BhajanTempo = typeof BHAJAN_TEMPO_OPTIONS[number]["value"];
+
 export interface Bhajan {
   id: string;
   title: string;
   lyrics: string;
   meaning: string;
-  tempo: "slow" | "medium" | "fast";
+  tempo: BhajanTempo;
   beatTaal: string;
   language: string;
   category: string;
@@ -275,6 +305,7 @@ export interface Bhajan {
   additionalMetadata?: Record<string, unknown>;
   createdAt?: string;
 }
+
 
 export interface BhajanSignUpForm {
   id: string;

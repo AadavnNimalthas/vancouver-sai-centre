@@ -34,7 +34,7 @@ export default async function BhajanPage({
           <p className="eyebrow">
             {bhajan.category} · {bhajan.language} ·{" "}
             {bhajan.beatTaal ? `${bhajan.beatTaal} · ` : ""}
-            <span className="capitalize">{bhajan.tempo}</span> tempo
+            <span className="capitalize">{bhajan.tempo.replace("_", " ")}</span> tempo
           </p>
           <h1 className="mt-5 font-display text-5xl leading-[1.1] text-ink sm:text-6xl">
             {bhajan.title}

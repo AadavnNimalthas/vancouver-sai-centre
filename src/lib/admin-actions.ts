@@ -19,6 +19,7 @@ import {
   type SiteContent,
   type Wing,
   type WingSlug,
+  type BhajanTempo,
 } from "./types";
 
 
@@ -652,7 +653,7 @@ export async function editBhajan(
     title: string;
     lyrics: string;
     meaning: string;
-    tempo: "slow" | "medium" | "fast";
+    tempo: BhajanTempo;
     beatTaal: string;
     language: string;
     category: string;

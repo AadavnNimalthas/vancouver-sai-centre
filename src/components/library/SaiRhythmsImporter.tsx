@@ -4,24 +4,28 @@ import { useState, useTransition } from "react";
 import { parseSaiRhythmsUrl } from "@/lib/sairhythms";
 import { submitBhajan } from "@/lib/actions";
 import { motion } from "framer-motion";
+import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
+import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 
 interface SaiRhythmsImporterProps {
   onClose: () => void;
   onSuccess: (message: string) => void;
+  bhajans: Bhajan[];
 }
 
-export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterProps) {
+export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsImporterProps) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [submitting, startSubmitTransition] = useTransition();
   const [importedData, setImportedData] = useState<Partial<import("@/lib/types").Bhajan> | null>(null);
+  const [variationConfirm, setVariationConfirm] = useState<Bhajan | null>(null);
 
   // Review editable states
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [meaning, setMeaning] = useState("");
-  const [tempo, setTempo] = useState<"slow" | "medium" | "fast">("medium");
+  const [tempo, setTempo] = useState<BhajanTempo>("medium");
   const [beatTaal, setBeatTaal] = useState("");
   const [language, setLanguage] = useState("Sanskrit");
   const [category, setCategory] = useState("");
@@ -51,16 +55,33 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
     });
   }
 
-  function handleSubmit() {
+  function handleSubmit(bypassCheck: boolean | React.MouseEvent = false) {
     if (!title || !lyrics || !meaning || !category || !beatTaal) {
-      setError("Title, lyrics, meaning, category (theme), and beat/taal are required.");
+      setError("Please fill in all required fields.");
       return;
     }
     setError("");
+
+    const formattedLyrics = capitalizeEachWord(lyrics);
+    const shouldBypass = typeof bypassCheck === "boolean" ? bypassCheck : false;
+
+    if (!shouldBypass) {
+      const { exactDuplicate, variationDuplicate } = checkDuplicateBhajan(title, formattedLyrics, bhajans);
+      if (exactDuplicate) {
+        setError(`This exact bhajan already exists in the library under the title '${exactDuplicate.title}'.`);
+        return;
+      }
+      if (variationDuplicate) {
+        setVariationConfirm(variationDuplicate);
+        return;
+      }
+    }
+
+    setVariationConfirm(null);
     startSubmitTransition(async () => {
       const res = await submitBhajan({
         title,
-        lyrics,
+        lyrics: formattedLyrics,
         meaning,
         tempo,
         beatTaal,
@@ -137,13 +158,20 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
             </div>
             <div>
               <label className="label">Deity / Category *</label>
-              <input
+              <select
                 className="field"
-                placeholder="e.g. Shiva, Ganesha, Sai, Krishna"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 disabled={submitting}
-              />
+              >
+                <option value="">Select Deity / Category</option>
+                {(category && !BHAJAN_DEITY_OPTIONS.includes(category as any)
+                  ? [...BHAJAN_DEITY_OPTIONS, category].sort()
+                  : BHAJAN_DEITY_OPTIONS
+                ).map((deity) => (
+                  <option key={deity} value={deity}>{deity}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label">Language</label>
@@ -169,12 +197,14 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
               <select
                 className="field"
                 value={tempo}
-                onChange={(e) => setTempo(e.target.value as "slow" | "medium" | "fast")}
+                onChange={(e) => setTempo(e.target.value as BhajanTempo)}
                 disabled={submitting}
               >
-                <option value="slow">Slow</option>
-                <option value="medium">Medium</option>
-                <option value="fast">Fast</option>
+                {BHAJAN_TEMPO_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -217,6 +247,29 @@ export function SaiRhythmsImporter({ onClose, onSuccess }: SaiRhythmsImporterPro
           </div>
 
           {error && <p className="text-sm text-terra font-medium">{error}</p>}
+          {variationConfirm && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm space-y-2 mt-4">
+              <p>
+                A bhajan with a similar title or lyrics already exists: <strong>{variationConfirm.title}</strong>. Is this a new variation?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(true)}
+                  className="px-2.5 py-1 bg-amber-600 text-white rounded text-xs font-semibold hover:bg-amber-700 transition-colors"
+                >
+                  Yes, save as variation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVariationConfirm(null)}
+                  className="px-2.5 py-1 bg-sand/30 hover:bg-sand/50 rounded text-xs font-semibold transition-colors"
+                >
+                  No, it's the same
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-between gap-3 pt-2 border-t border-line">
             <button

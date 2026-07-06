@@ -6,7 +6,7 @@ import { getCurrentUser } from "./auth";
 import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
 import { getDemoDb, mutateDemoDb, newId, saveDemoDb } from "./demo-db-store";
-import type { Bhajan, Registration } from "./types";
+import type { Bhajan, BhajanTempo, Registration } from "./types";
 
 export interface ActionResult {
   ok: boolean;
@@ -264,7 +264,7 @@ export async function submitBhajan(input: {
   title: string;
   lyrics: string;
   meaning: string;
-  tempo: "slow" | "medium" | "fast";
+  tempo: BhajanTempo;
   beatTaal: string;
   language: string;
   category: string;

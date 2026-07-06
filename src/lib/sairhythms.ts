@@ -1,11 +1,11 @@
-import type { Bhajan } from "./types";
+import type { Bhajan, BhajanTempo } from "./types";
 
 interface SaiRhythmsInfo {
   title: string;
   lyrics: string;
   meaning: string;
   language: string;
-  tempo: "slow" | "medium" | "fast";
+  tempo: BhajanTempo;
   beatTaal: string;
   category: string;
   sourceLink: string;
