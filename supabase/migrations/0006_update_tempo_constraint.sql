@@ -2,4 +2,4 @@
 ALTER TABLE public.bhajans DROP CONSTRAINT IF EXISTS bhajans_tempo_check;
 
 -- Add the updated check constraint supporting the new tempos
-ALTER TABLE public.bhajans ADD CONSTRAINT bhajans_tempo_check CHECK (tempo IN ('meliodic', 'slow', 'medium', 'fast', 'very_fast'));
+ALTER TABLE public.bhajans ADD CONSTRAINT bhajans_tempo_check CHECK (tempo IN ('melodic', 'slow', 'medium', 'fast', 'very_fast'));

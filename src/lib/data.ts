@@ -90,6 +90,8 @@ function mapForm(row: any): SaiForm {
     published: row.published,
     updatedAt: row.updated_at,
     attachedEventIds: row.attached_event_ids ?? [],
+    wing: row.wing ?? null,
+    createdBy: row.created_by ?? null,
   };
 }
 

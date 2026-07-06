@@ -10,7 +10,7 @@ import { submitBhajan } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TEMPO_GLYPH: Record<Bhajan["tempo"], string> = {
-  meliodic: "♫",
+  melodic: "♫",
   slow: "●○○",
   medium: "●●○",
   fast: "●●●",

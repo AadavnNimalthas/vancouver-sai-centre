@@ -318,7 +318,7 @@ export const BHAJAN_DEITY_OPTIONS = [
 ] as const;
 
 export const BHAJAN_TEMPO_OPTIONS = [
-  { value: "meliodic", label: "Meliodic" },
+  { value: "melodic", label: "Melodic" },
   { value: "slow", label: "Slow" },
   { value: "medium", label: "Medium" },
   { value: "fast", label: "Fast" },

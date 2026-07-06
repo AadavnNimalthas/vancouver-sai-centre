@@ -38,7 +38,7 @@ export async function sendEmail(input: {
     <hr style="border:none;border-top:1px solid #E7DFD3;margin:28px 0;"/>
     <p style="margin:0;font-size:12px;color:#9B9186;font-family:Arial,sans-serif;">
       Love · Truth · Peace · Right Conduct · Non-Violence<br/>
-      2215 East Hender Street, Vancouver BC
+      2215 East Pender Street, Vancouver BC
     </p>
   </div>
 </div>`,

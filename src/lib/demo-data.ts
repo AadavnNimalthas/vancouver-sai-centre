@@ -11,8 +11,8 @@ export const defaultSiteContent: SiteContent = {
   heroTitle: "Vancouver Sai Centre",
   heroSubtitle: "Sunday bhajans at 5 pm. Everyone is welcome.",
   intro:
-    "Vancouver Sai Centre is a spiritual community located at 2215 East Hender Street, Vancouver. We gather for devotional singing, study, service, children’s education, and youth activities inspired by the teachings of Sri Sathya Sai Baba.",
-  address: "2215 East Hender Street, Vancouver, BC",
+    "Vancouver Sai Centre is a spiritual community located at 2215 East Pender Street, Vancouver. We gather for devotional singing, study, service, children’s education, and youth activities inspired by the teachings of Sri Sathya Sai Baba.",
+  address: "2215 East Pender Street, Vancouver, BC",
   contactEmail: "vancouversaicentre@gmail.com",
   parkingInfo:
     "Street parking is usually available nearby. Please remove your shoes in the foyer.",
