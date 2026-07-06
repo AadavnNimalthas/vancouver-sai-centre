@@ -666,42 +666,63 @@ export async function editBhajan(
 
   if (!isSupabaseConfigured) {
     const db = getDemoDb();
-    const idx = db.bhajans.findIndex((b) => b.id === id);
-    if (idx >= 0) {
-      db.bhajans[idx] = {
-        ...db.bhajans[idx],
-        ...patch,
-      };
-      saveDemoDb(db);
+    if (id) {
+      const idx = db.bhajans.findIndex((b) => b.id === id);
+      if (idx >= 0) {
+        db.bhajans[idx] = {
+          ...db.bhajans[idx],
+          ...patch,
+        };
+      }
+    } else {
+      db.bhajans.push({
+        id: `bh-${Date.now()}`,
+        title: patch.title,
+        lyrics: patch.lyrics,
+        meaning: patch.meaning,
+        tempo: patch.tempo,
+        beatTaal: patch.beatTaal,
+        language: patch.language,
+        category: patch.category,
+        notes: patch.notes,
+        sourceLink: patch.sourceLink ?? null,
+        audioUrl: patch.audioUrl ?? null,
+        videoUrl: patch.videoUrl ?? null,
+        status: "approved",
+        createdAt: new Date().toISOString(),
+      });
     }
+    saveDemoDb(db);
     revalidatePath("/library/bhajans");
     revalidatePath("/admin/bhajans");
-    return { ok: true, message: "Bhajan updated successfully!" };
+    return { ok: true, message: id ? "Bhajan updated successfully!" : "Bhajan added successfully!" };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("bhajans")
-    .update({
-      title: patch.title,
-      lyrics: patch.lyrics,
-      meaning: patch.meaning,
-      tempo: patch.tempo,
-      beat_taal: patch.beatTaal,
-      language: patch.language,
-      category: patch.category,
-      notes: patch.notes,
-      source_link: patch.sourceLink || null,
-      audio_url: patch.audioUrl || null,
-      video_url: patch.videoUrl || null,
-    })
-    .eq("id", id);
+  const row = {
+    title: patch.title,
+    lyrics: patch.lyrics,
+    meaning: patch.meaning,
+    tempo: patch.tempo,
+    beat_taal: patch.beatTaal,
+    language: patch.language,
+    category: patch.category,
+    notes: patch.notes,
+    source_link: patch.sourceLink || null,
+    audio_url: patch.audioUrl || null,
+    video_url: patch.videoUrl || null,
+    status: "approved",
+  };
 
-  if (error) return { ok: false, message: `Could not update bhajan: ${error.message}` };
+  const { error } = id
+    ? await supabase.from("bhajans").update(row).eq("id", id)
+    : await supabase.from("bhajans").insert(row);
+
+  if (error) return { ok: false, message: `Could not save bhajan: ${error.message}` };
 
   revalidatePath("/library/bhajans");
   revalidatePath("/admin/bhajans");
-  return { ok: true, message: "Bhajan updated successfully!" };
+  return { ok: true, message: id ? "Bhajan updated successfully!" : "Bhajan added successfully!" };
 }
 
 export async function deleteBhajan(id: string): Promise<ActionResult> {

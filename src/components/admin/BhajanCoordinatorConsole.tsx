@@ -429,14 +429,38 @@ export function BhajanCoordinatorConsole({
         {/* Library Tab */}
         {activeTab === "library" && (
           <div className="space-y-4">
-            <div className="flex gap-3">
-              <input
-                type="search"
-                className="field"
-                placeholder="Search library by title or category..."
-                value={libSearch}
-                onChange={(e) => setLibSearch(e.target.value)}
-              />
+            <div className="flex gap-3 items-center">
+              <div className="flex-1">
+                <input
+                  type="search"
+                  className="field"
+                  placeholder="Search library by title or category..."
+                  value={libSearch}
+                  onChange={(e) => setLibSearch(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() =>
+                  setEditingBhajan({
+                    id: "",
+                    title: "",
+                    lyrics: "",
+                    meaning: "",
+                    tempo: "medium",
+                    beatTaal: "",
+                    language: "Sanskrit",
+                    category: "Sai",
+                    notes: "",
+                    status: "approved",
+                    sourceLink: null,
+                    audioUrl: null,
+                    videoUrl: null,
+                  })
+                }
+                className="btn btn-primary text-xs !px-4 h-[38px] font-semibold shrink-0"
+              >
+                + Add Bhajan
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -480,7 +504,9 @@ export function BhajanCoordinatorConsole({
               className="card relative w-full max-w-2xl bg-cream max-h-[85vh] flex flex-col justify-between overflow-hidden shadow-lift"
             >
               <div className="border-b border-line px-6 py-4 flex items-center justify-between">
-                <h3 className="font-display text-xl font-bold text-ink">Edit Bhajan Details</h3>
+                <h3 className="font-display text-xl font-bold text-ink">
+                  {editingBhajan.id ? "Edit Bhajan Details" : "Add New Bhajan"}
+                </h3>
                 <button
                   onClick={() => setEditingBhajan(null)}
                   className="text-ink-soft hover:text-ink text-2xl leading-none"
