@@ -25,6 +25,23 @@ export function cleanForComparison(text: string): string {
     .trim();
 }
 
+/**
+ * Normalizes text for broader search matching by reducing spelling variations.
+ * Collapses double vowels and aspirated consonants to their simpler forms.
+ */
+export function normalizeSearchText(text: string): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .replace(/aa/g, "a")
+    .replace(/ee/g, "i")
+    .replace(/oo/g, "u")
+    .replace(/dh/g, "d")
+    .replace(/th/g, "t")
+    .replace(/bh/g, "b")
+    .replace(/ph/g, "p");
+}
+
 export function getWordSimilarity(s1: string, s2: string): number {
   if (!s1 || !s2) return 0;
   const words1 = new Set(s1.toLowerCase().match(/[a-z0-9]+/g) || []);

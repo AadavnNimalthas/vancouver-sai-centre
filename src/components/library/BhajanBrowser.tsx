@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { FilterChip } from "@/components/events/EventsExplorer";
 import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
-import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
+import { capitalizeEachWord, checkDuplicateBhajan, normalizeSearchText } from "@/lib/bhajan-utils";
 import { SaiRhythmsImporter } from "./SaiRhythmsImporter";
 import { submitBhajan } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
@@ -105,9 +105,11 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
       if (!matchBeat) return false;
       
       if (q) {
-        const matchQuery = gb.versions.some((v) =>
-          `${v.title} ${v.meaning} ${v.lyrics}`.toLowerCase().includes(q)
-        );
+        const normalizedQ = normalizeSearchText(q);
+        const matchQuery = gb.versions.some((v) => {
+          const combined = `${v.title} ${v.meaning} ${v.lyrics}`;
+          return normalizeSearchText(combined).includes(normalizedQ);
+        });
         if (!matchQuery) return false;
       }
       
@@ -221,7 +223,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
               }}
               className="btn btn-primary w-full sm:w-auto h-[48px] font-semibold text-sm"
             >
-              + Suggest a Bhajan
+              + Add a Bhajan
             </button>
           </div>
         </div>
@@ -343,7 +345,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
               <div className="border-b border-line px-6 py-4 flex items-center justify-between">
                 <h3 className="font-display text-xl font-bold text-ink">
                   {suggestMode === "manual"
-                    ? "Suggest New Bhajan"
+                    ? "Add New Bhajan"
                     : suggestMode === "import"
                     ? "Import from SaiRhythms"
                     : "Add New Bhajan"}
@@ -500,7 +502,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
                         Cancel
                       </button>
                       <button onClick={handleSuggestManual} className="btn btn-primary !px-4 !py-1.5 text-xs font-semibold" disabled={pending}>
-                        {pending ? "Submitting..." : "Submit Suggestion"}
+                        {pending ? "Adding..." : "Add Bhajan"}
                       </button>
                     </div>
                   </>

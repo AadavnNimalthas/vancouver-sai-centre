@@ -13,6 +13,15 @@ interface BhajanDetailsProps {
   initialActiveId: string;
 }
 
+const LANGUAGE_TO_SCRIPT: Record<string, { key: "devanagari" | "telugu" | "tamil"; label: string }> = {
+  sanskrit: { key: "devanagari", label: "Devanagari" },
+  hindi: { key: "devanagari", label: "Devanagari" },
+  marathi: { key: "devanagari", label: "Devanagari" },
+  nepali: { key: "devanagari", label: "Devanagari" },
+  telugu: { key: "telugu", label: "Telugu" },
+  tamil: { key: "tamil", label: "Tamil" },
+};
+
 export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps) {
   const [activeId, setActiveId] = useState(initialActiveId);
   const [selectedScript, setSelectedScript] = useState<"english" | "devanagari" | "telugu" | "tamil">("english");
@@ -20,6 +29,17 @@ export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps)
   const [isTransliterating, setIsTransliterating] = useState(false);
   
   const activeBhajan = versions.find((v) => v.id === activeId) || versions[0];
+  const nativeScript = activeBhajan?.language ? LANGUAGE_TO_SCRIPT[activeBhajan.language.toLowerCase()] : null;
+  const scriptOptions: Array<{key: string, label: string}> = [ { key: "english", label: "English" } ];
+  if (nativeScript) {
+    scriptOptions.push(nativeScript);
+  }
+
+  useEffect(() => {
+    if (selectedScript !== "english" && (!nativeScript || nativeScript.key !== selectedScript)) {
+      setSelectedScript("english");
+    }
+  }, [activeBhajan?.id, nativeScript?.key, selectedScript]);
 
   useEffect(() => {
     if (!activeBhajan) return;
@@ -99,29 +119,26 @@ export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps)
       <Reveal delay={0.15}>
         <div className="mt-12 flex flex-col items-center">
           {/* Script Selector Tabs */}
-          <div className="flex gap-1.5 rounded-full bg-sand/40 p-1 mb-6 select-none">
-            {([
-              { key: "english", label: "English" },
-              { key: "devanagari", label: "Devanagari" },
-              { key: "telugu", label: "Telugu" },
-              { key: "tamil", label: "Tamil" }
-            ] as const).map((s) => {
-              const active = selectedScript === s.key;
-              return (
-                <button
-                  key={s.key}
-                  onClick={() => setSelectedScript(s.key)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
-                    active
-                      ? "bg-white-warm text-ink shadow-soft"
-                      : "text-ink-soft hover:text-ink"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              );
-            })}
-          </div>
+          {scriptOptions.length > 1 && (
+            <div className="flex gap-1.5 rounded-full bg-sand/40 p-1 mb-6 select-none">
+              {scriptOptions.map((s) => {
+                const active = selectedScript === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    onClick={() => setSelectedScript(s.key as any)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                      active
+                        ? "bg-white-warm text-ink shadow-soft"
+                        : "text-ink-soft hover:text-ink"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div className="w-full rounded-lg bg-sand/70 px-6 py-12 text-center sm:px-12 overflow-hidden">
             <div className={`flex flex-col text-ink ${
