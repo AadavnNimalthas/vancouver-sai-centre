@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { SITE_URL } from "@/lib/config";
 
 /**
  * Sign in with a password or an emailed link. Sessions are persistent:
@@ -41,7 +42,7 @@ export function LoginForm({ demoMode }: { demoMode: boolean }) {
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${SITE_URL}/auth/callback` },
     });
     if (error) {
       setStatus("error");

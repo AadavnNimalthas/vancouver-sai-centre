@@ -1,5 +1,6 @@
 export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://vancouversaicentre.ca";
 
 /**
  * When Supabase env vars are absent the app runs in demo mode: all reads
