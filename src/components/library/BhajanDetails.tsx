@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MalaDivider } from "@/components/MalaDivider";
 import { Reveal } from "@/components/Reveal";
 import type { Bhajan } from "@/lib/types";
+import { transliterate } from "@/lib/transliteration";
 
 interface BhajanDetailsProps {
   versions: Bhajan[];
@@ -13,6 +14,7 @@ interface BhajanDetailsProps {
 
 export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps) {
   const [activeId, setActiveId] = useState(initialActiveId);
+  const [selectedScript, setSelectedScript] = useState<"english" | "devanagari" | "telugu" | "tamil">("english");
   const activeBhajan = versions.find((v) => v.id === activeId) || versions[0];
 
   if (!activeBhajan) return null;
@@ -64,10 +66,43 @@ export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps)
       </Reveal>
 
       <Reveal delay={0.15}>
-        <div className="mt-12 rounded-lg bg-sand/70 px-6 py-12 text-center sm:px-12">
-          <p className="whitespace-pre-line font-display text-2xl leading-[2] text-ink">
-            {activeBhajan.lyrics}
-          </p>
+        <div className="mt-12 flex flex-col items-center">
+          {/* Script Selector Tabs */}
+          <div className="flex gap-1.5 rounded-full bg-sand/40 p-1 mb-6 select-none">
+            {([
+              { key: "english", label: "English" },
+              { key: "devanagari", label: "Devanagari" },
+              { key: "telugu", label: "Telugu" },
+              { key: "tamil", label: "Tamil" }
+            ] as const).map((s) => {
+              const active = selectedScript === s.key;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setSelectedScript(s.key)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                    active
+                      ? "bg-white-warm text-ink shadow-soft"
+                      : "text-ink-soft hover:text-ink"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="w-full rounded-lg bg-sand/70 px-6 py-12 text-center sm:px-12">
+            <p className={`whitespace-pre-line text-ink ${
+              selectedScript === "english"
+                ? "font-display text-2xl leading-[2]"
+                : "font-sans text-2xl leading-[2.2] tracking-wide"
+            }`}>
+              {selectedScript === "english"
+                ? activeBhajan.lyrics
+                : transliterate(activeBhajan.lyrics, selectedScript)}
+            </p>
+          </div>
         </div>
       </Reveal>
 

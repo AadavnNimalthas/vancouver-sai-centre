@@ -240,7 +240,6 @@ export function BhajanSelector({
           <p className="font-semibold text-ink-faint uppercase tracking-wider text-[0.65rem] mb-1">Lyrics Preview</p>
           <p className="font-mono whitespace-pre-wrap italic">
             {selectedBhajan.lyrics.split("\n").slice(0, 3).join("\n")}
-            {selectedBhajan.lyrics.split("\n").length > 3 ? " ..." : ""}
           </p>
         </div>
       )}
@@ -427,7 +426,6 @@ export function BhajanSelector({
                                         </p>
                                         <p className="text-xs font-mono text-ink-soft/85 mt-1.5 italic bg-white/50 p-1.5 rounded border border-line/20 whitespace-pre-wrap max-w-lg leading-relaxed">
                                           {v.lyrics.split("\n").slice(0, 2).join("\n")}
-                                          {v.lyrics.split("\n").length > 2 ? " ..." : ""}
                                         </p>
                                         {v.status === "pending" && (
                                           <span className="inline-block text-[0.65rem] uppercase font-bold text-terra bg-terra/5 border border-terra/20 px-1.5 py-0.5 rounded mt-1">

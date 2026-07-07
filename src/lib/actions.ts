@@ -98,6 +98,21 @@ export async function submitRegistration(input: {
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
 
+  let guestEmail = input.guestEmail;
+  let guestName = input.guestName;
+
+  if (!user) {
+    for (const [key, value] of Object.entries(input.answers)) {
+      const lowerKey = key.toLowerCase();
+      if (!guestEmail && (lowerKey.includes("email") || lowerKey.includes("e-mail"))) {
+        guestEmail = String(value).trim();
+      }
+      if (!guestName && (lowerKey.includes("name") || lowerKey.includes("full name"))) {
+        guestName = String(value).trim();
+      }
+    }
+  }
+
   if (!isSupabaseConfigured) {
     return mutateDemoDb((db) => {
       const event = db.events.find((e) => e.id === input.eventId);
@@ -134,8 +149,8 @@ export async function submitRegistration(input: {
         status: waitlisted ? "waitlisted" : "registered",
         answers: input.answers,
         createdAt: new Date().toISOString(),
-        userName: user?.fullName ?? input.guestName,
-        userEmail: user?.email ?? input.guestEmail,
+        userName: user?.fullName ?? guestName,
+        userEmail: user?.email ?? guestEmail,
       };
       db.registrations.push(registration);
       event.registeredCount = waitlisted ? active : active + (input.kind === "attendee" ? 1 : 0);
@@ -183,8 +198,8 @@ export async function submitRegistration(input: {
   const { error } = await supabase.from("registrations").insert({
     event_id: input.eventId,
     user_id: user?.id ?? null,
-    guest_email: user ? null : (input.guestEmail ?? null),
-    guest_name: user ? null : (input.guestName ?? null),
+    guest_email: user ? null : (guestEmail ?? null),
+    guest_name: user ? null : (guestName ?? null),
     kind: input.kind,
     status,
     answers: input.answers,
@@ -195,7 +210,7 @@ export async function submitRegistration(input: {
     return { ok: false, message: "Something went wrong saving your registration. Please try again." };
   }
 
-  const email = user?.email ?? input.guestEmail;
+  const email = user?.email ?? guestEmail;
   if (email) {
     await sendEmail({
       to: email,
@@ -343,7 +358,7 @@ export async function submitBhajan(input: {
   videoUrl?: string | null;
 }): Promise<ActionResult> {
   const user = await getCurrentUser();
-  const userId = user?.id ?? "local-admin";
+  const userId = user?.id ?? (isSupabaseConfigured ? null : "local-admin");
 
   if (!isSupabaseConfigured) {
     const db = getDemoDb();
