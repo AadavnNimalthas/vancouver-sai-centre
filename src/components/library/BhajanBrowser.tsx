@@ -213,19 +213,17 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
               aria-label="Search bhajans"
             />
           </div>
-          {signedIn && (
-            <div>
-              <button
-                onClick={() => {
-                  setSuggestOpen(true);
-                  resetSuggestForm();
-                }}
-                className="btn btn-primary w-full sm:w-auto h-[48px] font-semibold text-sm"
-              >
-                + Suggest a Bhajan
-              </button>
-            </div>
-          )}
+          <div>
+            <button
+              onClick={() => {
+                setSuggestOpen(true);
+                resetSuggestForm();
+              }}
+              className="btn btn-primary w-full sm:w-auto h-[48px] font-semibold text-sm"
+            >
+              + Suggest a Bhajan
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4 border-b border-line pb-6">
