@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminSetupPrompt } from "@/components/AdminSetupPrompt";
 import { FeaturedCarousel } from "@/components/home/FeaturedCarousel";
 import { MiniCalendar } from "@/components/home/MiniCalendar";
+import { WeeklyCalendar } from "@/components/home/WeeklyCalendar";
 import { ValuesStrand } from "@/components/home/ValuesStrand";
 import { EventRow } from "@/components/EventCard";
 import { MalaDivider } from "@/components/MalaDivider";
@@ -17,7 +18,7 @@ import {
 import { expandOccurrences, upcomingOccurrences } from "@/lib/recurrence";
 import { formatShortDate } from "@/lib/format";
 import { roleAtLeast } from "@/lib/types";
-import { endOfMonth, startOfMonth } from "date-fns";
+import { endOfMonth, startOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
 export default async function HomePage() {
   const user = await getCurrentUser();
@@ -36,6 +37,7 @@ export default async function HomePage() {
   const now = new Date();
   const upcoming = upcomingOccurrences(events, now, 5);
   const monthOccurrences = expandOccurrences(events, startOfMonth(now), endOfMonth(now));
+  const weekOccurrences = expandOccurrences(events, startOfWeek(now), endOfWeek(now));
   const galleryAlbums = albums.slice(0, 6);
   const visibleContacts = site.contacts.filter((c) => c.visible);
 
@@ -65,16 +67,11 @@ export default async function HomePage() {
 
       {/* ── Who we are ─────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-20">
-        <div className="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-16">
+        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.9fr_0.9fr] lg:gap-8">
           <Reveal>
             <h2 className="eyebrow eyebrow-rule">Who we are</h2>
             <p className="mt-5 font-display text-2xl leading-[1.5] text-ink sm:text-[1.7rem]">
               {site.intro}
-            </p>
-            <p className="mt-5 text-ink-soft">
-              There is no membership fee. You can take part while practising
-              your own faith. The easiest way to start is to come to Sunday
-              bhajans.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link href="/events" className="btn btn-primary">
@@ -86,22 +83,27 @@ export default async function HomePage() {
             </div>
           </Reveal>
           <Reveal delay={0.15}>
-            <div className="card p-7">
-              <h3 className="font-display text-xl text-ink">When we meet</h3>
-              <ul className="mt-4 space-y-3 text-[0.925rem] text-ink-soft">
-                {site.whenMeet.map((m) => (
-                  <li key={m.label}>
-                    <span className="font-semibold text-ink">{m.time}</span>
-                    <br />
-                    {m.label}
-                  </li>
-                ))}
-                {site.whenMeet.length === 0 && <li>Meeting times are being updated.</li>}
-              </ul>
+            <div className="card p-7 h-full flex flex-col justify-between">
+              <div>
+                <h3 className="font-display text-xl text-ink">When we meet</h3>
+                <ul className="mt-4 space-y-3 text-[0.925rem] text-ink-soft">
+                  {site.whenMeet.map((m) => (
+                    <li key={m.label}>
+                      <span className="font-semibold text-ink">{m.time}</span>
+                      <br />
+                      {m.label}
+                    </li>
+                  ))}
+                  {site.whenMeet.length === 0 && <li>Meeting times are being updated.</li>}
+                </ul>
+              </div>
               <p className="mt-5 border-t border-line pt-4 text-[0.875rem] text-ink-soft">
                 {site.address}
               </p>
             </div>
+          </Reveal>
+          <Reveal delay={0.2}>
+            <WeeklyCalendar occurrences={weekOccurrences} />
           </Reveal>
         </div>
       </section>

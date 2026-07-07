@@ -46,11 +46,11 @@ export interface DuplicateCheckResult {
 export function checkDuplicateBhajan(
   title: string,
   lyrics: string,
-  allBhajans: Bhajan[]
+  allBhajans: Bhajan[],
+  sourceLink?: string | null
 ): DuplicateCheckResult {
   const formattedLyrics = capitalizeEachWord(lyrics);
   const cleanLyricsInput = cleanForComparison(formattedLyrics);
-  const lowercaseTitleInput = title.trim().toLowerCase();
   
   let exactDuplicate: Bhajan | null = null;
   let variationDuplicate: Bhajan | null = null;
@@ -62,11 +62,12 @@ export function checkDuplicateBhajan(
       break;
     }
     
-    const isSameTitle = b.title.trim().toLowerCase() === lowercaseTitleInput;
-    const similarity = getWordSimilarity(b.lyrics, formattedLyrics);
-    const isSimilarLyrics = similarity >= 0.70;
-    
-    if (isSameTitle || isSimilarLyrics) {
+    // Only check for variation duplicates if they share the same non-empty sourceLink
+    if (
+      sourceLink &&
+      b.sourceLink &&
+      sourceLink.trim().toLowerCase() === b.sourceLink.trim().toLowerCase()
+    ) {
       variationDuplicate = b;
     }
   }

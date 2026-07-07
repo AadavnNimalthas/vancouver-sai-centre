@@ -22,11 +22,16 @@ export default async function BhajanPage({
   const bhajan = await getBhajan(id);
   if (!bhajan) notFound();
 
-  // Fetch other versions/variations of the same bhajan (matching title case-insensitively)
+  // Fetch other versions/variations of the same bhajan (matching sourceLink)
   const allBhajans = await getBhajans(true);
-  const versions = allBhajans.filter(
-    (b) => b.title.trim().toLowerCase() === bhajan.title.trim().toLowerCase()
-  );
+  const link = bhajan.sourceLink;
+  const versions = link
+    ? allBhajans.filter(
+        (b) =>
+          b.sourceLink &&
+          b.sourceLink.trim().toLowerCase() === link.trim().toLowerCase()
+      )
+    : [bhajan];
 
   return (
     <div className="mx-auto max-w-3xl px-5 pb-24 pt-36 sm:px-8">

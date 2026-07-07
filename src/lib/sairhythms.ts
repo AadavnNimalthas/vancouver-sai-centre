@@ -84,7 +84,7 @@ function extractMetaRow(html: string, rowClass: string): string {
  * Returns whatever it can find; callers should treat missing lyrics as a
  * failed import (likely not a song page).
  */
-export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhajan> {
+export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhajan>[] {
   const html = rawHtml.replace(/\s+/g, " ");
 
   // ── Title: prefer the page <title>, fall back to the URL slug ──
@@ -98,18 +98,6 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
   } else {
     title = toTitleCase(title);
   }
-
-  // ── Lyrics: the first `lyrics-set` block, line by line ──
-  const setMatch = html.match(
-    /<div class=['"]lyrics-set['"]>([\s\S]*?)(?:<div class=['"]lyrics-set['"]>|<!--\s*\.devotional-song-content|<hr)/i
-  );
-  const block = setMatch ? setMatch[1] : html;
-  const lyrics = [
-    ...block.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
-  ]
-    .map((m) => stripTags(m[1]).trim())
-    .filter(Boolean)
-    .join("\n");
 
   // ── Beat ──
   let beatTaal = "";
@@ -150,9 +138,6 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
       }
     }
   }
-  if (!category) {
-    category = guessCategory(title, lyrics);
-  }
 
   // ── Meaning: the blue "alert-info" box below the lyrics ──
   let meaning = "";
@@ -164,18 +149,16 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
       .trim();
   }
 
-  // ── Language ──
-  let language = "Sanskrit";
-  const rawLanguage = extractMetaRow(html, "language-row");
-  if (rawLanguage) {
-    language = rawLanguage;
-  } else {
-    const langTab = html.match(/class=['"]alt-lyrics-title['"][^>]*>(.*?)<\/a>/i);
-    if (langTab) {
-      const raw = stripTags(langTab[1]).trim();
-      if (raw) language = raw;
+  // ── Languages ──
+  const mainLanguage = extractMetaRow(html, "language-row") || "Sanskrit";
+  const altLanguages: string[] = [];
+  for (const m of html.matchAll(/class=['"]alt-lyrics-title['"][^>]*>(.*?)<\/a>/gi)) {
+    const lang = stripTags(m[1]).trim();
+    if (lang) {
+      altLanguages.push(lang);
     }
   }
+  const languagesList = [mainLanguage, ...altLanguages];
 
   // ── Tempo ──
   const rawTempo = extractMetaRow(html, "tempo-row");
@@ -197,17 +180,60 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
     }
   }
 
-  return {
-    title,
-    lyrics,
-    meaning,
-    language,
-    tempo,
-    beatTaal,
-    category,
-    sourceLink: url,
-    status: "pending",
-    audioUrl: null,
-    videoUrl: null,
-  };
+  // ── Lyrics Sets ──
+  const setMatches = [...html.matchAll(/<div class=['"]lyrics-set['"]>([\s\S]*?)<\/div>/gi)];
+  const versions: Partial<Bhajan>[] = [];
+
+  if (setMatches.length === 0) {
+    const lyrics = [
+      ...html.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
+    ]
+      .map((m) => stripTags(m[1]).trim())
+      .filter(Boolean)
+      .join("\n");
+
+    versions.push({
+      title,
+      lyrics,
+      meaning,
+      language: mainLanguage,
+      tempo,
+      beatTaal,
+      category: category || guessCategory(title, lyrics),
+      sourceLink: url,
+      status: "pending",
+      audioUrl: null,
+      videoUrl: null,
+    });
+  } else {
+    for (let i = 0; i < setMatches.length; i++) {
+      const block = setMatches[i][1];
+      const lyrics = [
+        ...block.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
+      ]
+        .map((m) => stripTags(m[1]).trim())
+        .filter(Boolean)
+        .join("\n");
+
+      if (!lyrics) continue;
+
+      const language = languagesList[i] || mainLanguage;
+
+      versions.push({
+        title,
+        lyrics,
+        meaning,
+        language,
+        tempo,
+        beatTaal,
+        category: category || guessCategory(title, lyrics),
+        sourceLink: url,
+        status: "pending",
+        audioUrl: null,
+        videoUrl: null,
+      });
+    }
+  }
+
+  return versions;
 }

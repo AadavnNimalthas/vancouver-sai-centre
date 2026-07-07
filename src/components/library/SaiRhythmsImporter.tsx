@@ -75,25 +75,28 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
         const url = urls[i];
         try {
           const res = await importFromSaiRhythms(url);
-          if (res.data) {
-            const data = res.data;
-            items.push({
-              id: `import-${i}-${Date.now()}`,
-              url,
-              title: data.title || "",
-              lyrics: data.lyrics || "",
-              meaning: data.meaning || "",
-              tempo: data.tempo || "medium",
-              beatTaal: data.beatTaal || "",
-              language: data.language || "Sanskrit",
-              category: data.category || "",
-              notes: data.notes || "",
-              isOpen: i === 0,
-              status: "idle",
-              error: res.ok ? null : res.message,
-              variationConfirm: null,
-              bypassCheck: false,
-            });
+          if (res.data && Array.isArray(res.data)) {
+            const versions = res.data;
+            for (let j = 0; j < versions.length; j++) {
+              const data = versions[j];
+              items.push({
+                id: `import-${i}-${j}-${Date.now()}`,
+                url,
+                title: data.title || "",
+                lyrics: data.lyrics || "",
+                meaning: data.meaning || "",
+                tempo: data.tempo || "medium",
+                beatTaal: data.beatTaal || "",
+                language: data.language || "Sanskrit",
+                category: data.category || "",
+                notes: data.notes || "",
+                isOpen: i === 0 && j === 0,
+                status: "idle",
+                error: res.ok ? null : res.message,
+                variationConfirm: null,
+                bypassCheck: false,
+              });
+            }
           } else {
             items.push({
               id: `import-${i}-${Date.now()}`,
@@ -203,7 +206,8 @@ export function SaiRhythmsImporter({ onClose, onSuccess, bhajans }: SaiRhythmsIm
           const { exactDuplicate, variationDuplicate } = checkDuplicateBhajan(
             item.title,
             formattedLyrics,
-            bhajans
+            bhajans,
+            item.url
           );
           if (exactDuplicate) {
             currentItems = currentItems.map(p =>

@@ -95,7 +95,8 @@ export function BhajanCoordinatorConsole({
       const { exactDuplicate, variationDuplicate } = checkDuplicateBhajan(
         editingBhajan.title,
         formattedLyrics,
-        bhajansList
+        bhajansList,
+        editingBhajan.sourceLink
       );
       if (exactDuplicate) {
         alert(`This exact bhajan already exists in the library under the title '${exactDuplicate.title}'.`);

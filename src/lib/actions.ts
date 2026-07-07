@@ -12,7 +12,7 @@ import type { Bhajan, BhajanTempo, Registration } from "./types";
 export interface ImportResult {
   ok: boolean;
   message: string;
-  data?: Partial<Bhajan>;
+  data?: Partial<Bhajan>[];
 }
 
 /**
@@ -56,19 +56,19 @@ export async function importFromSaiRhythms(url: string): Promise<ImportResult> {
     }
 
     const html = await res.text();
-    const data = parseSaiRhythmsHtml(html, clean);
+    const versions = parseSaiRhythmsHtml(html, clean);
 
-    if (!data.lyrics) {
+    if (versions.length === 0) {
       // Still hand back the title so the coordinator can fill the rest in.
       return {
         ok: false,
         message:
           "We opened the page but could not read the lyrics automatically. You can paste them in by hand below.",
-        data: { ...data, title: data.title || titleFromSaiRhythmsUrl(clean) },
+        data: [{ title: titleFromSaiRhythmsUrl(clean), lyrics: "", meaning: "", language: "Sanskrit", tempo: "medium", beatTaal: "", category: "", sourceLink: clean }],
       };
     }
 
-    return { ok: true, message: "Imported from SaiRhythms.", data };
+    return { ok: true, message: "Imported from SaiRhythms.", data: versions };
   } catch {
     return {
       ok: false,

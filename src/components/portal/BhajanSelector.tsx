@@ -100,7 +100,9 @@ export function BhajanSelector({
   const groupedFilteredList = useMemo(() => {
     const groups: Record<string, Bhajan[]> = {};
     for (const b of filteredList) {
-      const key = b.title.trim().toLowerCase();
+      const key = b.sourceLink && b.sourceLink.trim()
+        ? b.sourceLink.trim().toLowerCase()
+        : `standalone-${b.id}`;
       if (!groups[key]) {
         groups[key] = [];
       }
@@ -354,19 +356,19 @@ export function BhajanSelector({
                         </div>
                       ) : (
                         groupedFilteredList.map((gb) => {
-                          const isExpanded = expandedGroupId === gb.title;
+                          const isExpanded = expandedGroupId === gb.id;
                           const hasMultiple = gb.versions.length > 1;
 
                           return (
                             <div
-                              key={gb.title}
+                              key={gb.id}
                               className="rounded-lg border border-line bg-white-warm overflow-hidden transition-all duration-200"
                             >
                               {/* Group Header */}
                               <div
                                 onClick={() => {
                                   if (hasMultiple) {
-                                    setExpandedGroupId(isExpanded ? null : gb.title);
+                                    setExpandedGroupId(isExpanded ? null : gb.id);
                                   } else {
                                     handleSelect(gb.versions[0]);
                                   }

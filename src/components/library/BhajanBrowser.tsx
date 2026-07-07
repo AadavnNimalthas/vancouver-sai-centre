@@ -63,7 +63,9 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
   const groupedBhajans = useMemo(() => {
     const groups: Record<string, Bhajan[]> = {};
     for (const b of bhajans) {
-      const key = b.title.trim().toLowerCase();
+      const key = b.sourceLink && b.sourceLink.trim()
+        ? b.sourceLink.trim().toLowerCase()
+        : `standalone-${b.id}`;
       if (!groups[key]) {
         groups[key] = [];
       }
