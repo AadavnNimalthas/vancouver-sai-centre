@@ -70,8 +70,8 @@ function guessCategory(title: string, lyrics: string): string {
   return "";
 }
 
-function extractMetaRow(html: string, rowClass: string): string {
-  const regex = new RegExp(`${rowClass}['"][^>]*>.*?col-dxs-8[^>]*>([\\s\\S]*?)<\/div>`, "i");
+function extractMetaRow(html: string, labelText: string): string {
+  const regex = new RegExp(`strong['"]?[^>]*>\\s*${labelText}\\s*<\\/div>\\s*<div[^>]*>([\\s\\S]*?)<\\/div>`, "i");
   const match = html.match(regex);
   if (match) {
     return stripTags(match[1]).trim();
@@ -101,7 +101,7 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
 
   // ── Beat ──
   let beatTaal = "";
-  const rawBeat = extractMetaRow(html, "beat-row");
+  const rawBeat = extractMetaRow(html, "Beat");
   if (rawBeat) {
     const match = rawBeat.match(/(\d+)/);
     if (match) {
@@ -120,7 +120,7 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
   }
 
   // ── Deity / Category ──
-  const rawDeity = extractMetaRow(html, "deity-row");
+  const rawDeity = extractMetaRow(html, "Deity");
   let category = "";
   if (rawDeity) {
     const cleanDeity = rawDeity.toLowerCase().trim();
@@ -150,7 +150,7 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
   }
 
   // ── Languages ──
-  const mainLanguage = extractMetaRow(html, "language-row") || "Sanskrit";
+  const mainLanguage = extractMetaRow(html, "Language") || "Sanskrit";
   const altLanguages: string[] = [];
   for (const m of html.matchAll(/class=['"]alt-lyrics-title['"][^>]*>(.*?)<\/a>/gi)) {
     const lang = stripTags(m[1]).trim();
@@ -161,7 +161,7 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
   const languagesList = [mainLanguage, ...altLanguages];
 
   // ── Tempo ──
-  const rawTempo = extractMetaRow(html, "tempo-row");
+  const rawTempo = extractMetaRow(html, "Tempo");
   let tempo: BhajanTempo = "medium";
   if (rawTempo) {
     const t = rawTempo.toLowerCase().trim();
@@ -181,33 +181,12 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
   }
 
   // ── Lyrics Sets ──
-  const setMatches = [...html.matchAll(/<div class=['"]lyrics-set['"]>([\s\S]*?)<\/div>/gi)];
+  const parts = html.split(/<div class=['"]lyrics-set['"]>/i);
   const versions: Partial<Bhajan>[] = [];
 
-  if (setMatches.length === 0) {
-    const lyrics = [
-      ...html.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
-    ]
-      .map((m) => stripTags(m[1]).trim())
-      .filter(Boolean)
-      .join("\n");
-
-    versions.push({
-      title,
-      lyrics,
-      meaning,
-      language: mainLanguage,
-      tempo,
-      beatTaal,
-      category: category || guessCategory(title, lyrics),
-      sourceLink: url,
-      status: "pending",
-      audioUrl: null,
-      videoUrl: null,
-    });
-  } else {
-    for (let i = 0; i < setMatches.length; i++) {
-      const block = setMatches[i][1];
+  if (parts.length > 1) {
+    for (let i = 1; i < parts.length; i++) {
+      const block = parts[i].split(/<!--\s*\.devotional-song-content|<hr/i)[0];
       const lyrics = [
         ...block.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
       ]
@@ -217,13 +196,38 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
 
       if (!lyrics) continue;
 
-      const language = languagesList[i] || mainLanguage;
+      const language = languagesList[i - 1] || mainLanguage;
 
       versions.push({
         title,
         lyrics,
         meaning,
         language,
+        tempo,
+        beatTaal,
+        category: category || guessCategory(title, lyrics),
+        sourceLink: url,
+        status: "pending",
+        audioUrl: null,
+        videoUrl: null,
+      });
+    }
+  }
+
+  if (versions.length === 0) {
+    const lyrics = [
+      ...html.matchAll(/class=['"](?:song-first-line|song-line)['"][^>]*>([\s\S]*?)<\/div>/gi),
+    ]
+      .map((m) => stripTags(m[1]).trim())
+      .filter(Boolean)
+      .join("\n");
+
+    if (lyrics) {
+      versions.push({
+        title,
+        lyrics,
+        meaning,
+        language: mainLanguage,
         tempo,
         beatTaal,
         category: category || guessCategory(title, lyrics),
