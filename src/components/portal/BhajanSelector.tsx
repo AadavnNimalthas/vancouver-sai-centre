@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
 import { capitalizeEachWord, checkDuplicateBhajan } from "@/lib/bhajan-utils";
 import { SaiRhythmsImporter } from "../library/SaiRhythmsImporter";
@@ -50,6 +50,7 @@ export function BhajanSelector({
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [variationConfirm, setVariationConfirm] = useState<Bhajan | null>(null);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
 
   const selectedBhajan = allBhajans.find((b) => b.id === selectedBhajanId);
 
@@ -92,6 +93,34 @@ export function BhajanSelector({
     return matchesSearch && matchesCategory;
   }).sort((a, b) => a.title.localeCompare(b.title));
 
+  interface GroupedSelectorBhajan extends Bhajan {
+    versions: Bhajan[];
+  }
+
+  const groupedFilteredList = useMemo(() => {
+    const groups: Record<string, Bhajan[]> = {};
+    for (const b of filteredList) {
+      const key = b.title.trim().toLowerCase();
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(b);
+    }
+    
+    return Object.values(groups).map((versions) => {
+      const sorted = [...versions].sort((a, b) => {
+        if (a.status === "approved" && b.status !== "approved") return -1;
+        if (a.status !== "approved" && b.status === "approved") return 1;
+        return (a.createdAt || "") > (b.createdAt || "") ? -1 : 1;
+      });
+      const primary = sorted[0];
+      return {
+        ...primary,
+        versions: sorted,
+      } as GroupedSelectorBhajan;
+    });
+  }, [filteredList]);
+
   function handleSelect(bhajan: Bhajan) {
     onSelect(bhajan);
     setIsOpen(false);
@@ -105,6 +134,7 @@ export function BhajanSelector({
     setSuggestMode("none");
     setError("");
     setVariationConfirm(null);
+    setExpandedGroupId(null);
   }
 
   function handleSuggestManual(bypassCheck: boolean | React.MouseEvent = false) {
@@ -317,36 +347,106 @@ export function BhajanSelector({
 
                     {/* Bhajans List */}
                     <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1">
-                      {filteredList.length === 0 ? (
+                      {groupedFilteredList.length === 0 ? (
                         <div className="py-12 text-center">
                           <p className="text-sm text-ink-soft">No matching bhajans found.</p>
                           <p className="text-xs text-ink-faint mt-1">If the bhajan doesn&rsquo;t exist, suggest it below.</p>
                         </div>
                       ) : (
-                        filteredList.map((b) => (
-                          <div
-                            key={b.id}
-                            onClick={() => handleSelect(b)}
-                            className="p-3 rounded-lg border border-line hover:border-gold hover:bg-sand/10 transition-colors cursor-pointer flex justify-between items-center"
-                          >
-                            <div>
-                              <p className="font-semibold text-ink text-sm sm:text-base">{b.title}</p>
-                              <p className="text-xs text-ink-soft mt-0.5">
-                                {b.category} · {b.language} · {b.tempo.replace("_", " ")} · {b.beatTaal || "No beat set"}
-                              </p>
-                              <p className="text-xs font-mono text-ink-soft/85 mt-1.5 italic bg-sand/15 p-1.5 rounded border border-line/20 whitespace-pre-wrap max-w-lg leading-relaxed">
-                                {b.lyrics.split("\n").slice(0, 2).join("\n")}
-                                {b.lyrics.split("\n").length > 2 ? " ..." : ""}
-                              </p>
-                              {b.status === "pending" && (
-                                <span className="inline-block text-[0.65rem] uppercase font-bold text-terra bg-terra/5 border border-terra/20 px-1.5 py-0.5 rounded mt-1">
-                                  Pending Review
-                                </span>
+                        groupedFilteredList.map((gb) => {
+                          const isExpanded = expandedGroupId === gb.title;
+                          const hasMultiple = gb.versions.length > 1;
+
+                          return (
+                            <div
+                              key={gb.title}
+                              className="rounded-lg border border-line bg-white-warm overflow-hidden transition-all duration-200"
+                            >
+                              {/* Group Header */}
+                              <div
+                                onClick={() => {
+                                  if (hasMultiple) {
+                                    setExpandedGroupId(isExpanded ? null : gb.title);
+                                  } else {
+                                    handleSelect(gb.versions[0]);
+                                  }
+                                }}
+                                className="p-3 hover:bg-sand/10 transition-colors cursor-pointer flex justify-between items-center select-none"
+                              >
+                                <div className="pr-4">
+                                  <p className="font-semibold text-ink text-sm sm:text-base flex items-center gap-2">
+                                    {gb.title}
+                                    {hasMultiple && (
+                                      <span className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded bg-sand border border-line text-ink-soft">
+                                        {gb.versions.length} versions
+                                      </span>
+                                    )}
+                                  </p>
+                                  {!isExpanded && (
+                                    <p className="text-xs text-ink-soft mt-0.5">
+                                      {gb.category} · {gb.language} · {gb.tempo.replace("_", " ")} · {gb.beatTaal || "No beat set"}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {hasMultiple ? (
+                                    <span className="text-xs text-gold font-semibold uppercase tracking-wider flex items-center gap-1">
+                                      {isExpanded ? "Collapse" : "View Versions"}
+                                      <svg
+                                        className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2.5}
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-gold font-semibold uppercase tracking-wider">Select</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Expanded Versions List */}
+                              {isExpanded && (
+                                <div className="border-t border-line bg-sand/5 divide-y divide-line/40">
+                                  {gb.versions.map((v, idx) => (
+                                    <div
+                                      key={v.id}
+                                      className="p-3 flex justify-between items-center hover:bg-sand/10 transition-colors"
+                                    >
+                                      <div className="pr-4">
+                                        <span className="text-[0.65rem] font-bold text-gold uppercase tracking-wider block mb-1">
+                                          Version {idx + 1}
+                                        </span>
+                                        <p className="text-xs text-ink-soft">
+                                          {v.category} · {v.language} · {v.tempo.replace("_", " ")} · {v.beatTaal || "No beat set"}
+                                        </p>
+                                        <p className="text-xs font-mono text-ink-soft/85 mt-1.5 italic bg-white/50 p-1.5 rounded border border-line/20 whitespace-pre-wrap max-w-lg leading-relaxed">
+                                          {v.lyrics.split("\n").slice(0, 2).join("\n")}
+                                          {v.lyrics.split("\n").length > 2 ? " ..." : ""}
+                                        </p>
+                                        {v.status === "pending" && (
+                                          <span className="inline-block text-[0.65rem] uppercase font-bold text-terra bg-terra/5 border border-terra/20 px-1.5 py-0.5 rounded mt-1">
+                                            Pending Review
+                                          </span>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSelect(v)}
+                                        className="btn btn-primary text-xs !px-3 !py-1 font-semibold shrink-0"
+                                      >
+                                        Select
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </div>
-                            <span className="text-xs text-gold font-semibold uppercase tracking-wider">Select</span>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </>

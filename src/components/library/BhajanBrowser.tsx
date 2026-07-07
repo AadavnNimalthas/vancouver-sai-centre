@@ -56,31 +56,71 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     [bhajans]
   );
 
+  interface GroupedBhajan extends Bhajan {
+    versions: Bhajan[];
+  }
+
+  const groupedBhajans = useMemo(() => {
+    const groups: Record<string, Bhajan[]> = {};
+    for (const b of bhajans) {
+      const key = b.title.trim().toLowerCase();
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(b);
+    }
+    
+    return Object.values(groups).map((versions) => {
+      const sorted = [...versions].sort((a, b) => {
+        if (a.status === "approved" && b.status !== "approved") return -1;
+        if (a.status !== "approved" && b.status === "approved") return 1;
+        const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bd - ad;
+      });
+      const primary = sorted[0];
+      return {
+        ...primary,
+        versions: sorted,
+      } as GroupedBhajan;
+    });
+  }, [bhajans]);
+
   const filteredAndSorted = useMemo(() => {
     const q = query.trim().toLowerCase();
     
-    // Filter
-    const result = bhajans.filter((b) => {
-      if (language !== "all" && b.language !== language) return false;
-      if (tempo !== "all" && b.tempo !== tempo) return false;
-      if (category !== "all" && b.category !== category) return false;
-      if (beatTaal !== "all" && b.beatTaal !== beatTaal) return false;
-      if (q && !`${b.title} ${b.meaning} ${b.lyrics}`.toLowerCase().includes(q))
-        return false;
+    const result = groupedBhajans.filter((gb) => {
+      const matchLang = language === "all" || gb.versions.some((v) => v.language === language);
+      if (!matchLang) return false;
+      
+      const matchTempo = tempo === "all" || gb.versions.some((v) => v.tempo === tempo);
+      if (!matchTempo) return false;
+      
+      const matchCategory = category === "all" || gb.versions.some((v) => v.category === category);
+      if (!matchCategory) return false;
+      
+      const matchBeat = beatTaal === "all" || gb.versions.some((v) => v.beatTaal === beatTaal);
+      if (!matchBeat) return false;
+      
+      if (q) {
+        const matchQuery = gb.versions.some((v) =>
+          `${v.title} ${v.meaning} ${v.lyrics}`.toLowerCase().includes(q)
+        );
+        if (!matchQuery) return false;
+      }
+      
       return true;
     });
 
-    // Sort
     if (sortBy === "alpha") {
       result.sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy === "recent") {
       result.sort((a, b) => {
         const ad = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bd = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bd - ad; // descending
+        return bd - ad;
       });
     } else if (sortBy === "used") {
-      // Simulate "most used" by sorting mock IDs or lengths of lyrics
       result.sort((a, b) => {
         const au = (a.additionalMetadata?.useCount as number) || a.title.length % 7;
         const bu = (b.additionalMetadata?.useCount as number) || b.title.length % 7;
@@ -89,7 +129,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     }
 
     return result;
-  }, [bhajans, query, language, tempo, category, beatTaal, sortBy]);
+  }, [groupedBhajans, query, language, tempo, category, beatTaal, sortBy]);
 
   function handleSuggestManual(bypassCheck: boolean | React.MouseEvent = false) {
     if (!title || !lyrics || !meaning || !catInput || !beatInput) {
@@ -260,8 +300,13 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
             className="group grid grid-cols-[1fr_auto] items-center gap-4 border-b border-line py-5 transition-colors hover:bg-white-warm sm:grid-cols-[2fr_1fr_1fr_auto]"
           >
             <div className="min-w-0">
-              <p className="font-display text-xl text-ink transition-colors group-hover:text-terra-deep">
+              <p className="font-display text-xl text-ink transition-colors group-hover:text-terra-deep flex items-center gap-2">
                 {b.title}
+                {b.versions.length > 1 && (
+                  <span className="inline-flex items-center text-[0.65rem] font-bold px-1.5 py-0.5 rounded bg-sand border border-line text-ink-soft select-none">
+                    {b.versions.length} versions
+                  </span>
+                )}
               </p>
               <p className="truncate text-[0.85rem] italic text-ink-soft">{b.meaning}</p>
             </div>
