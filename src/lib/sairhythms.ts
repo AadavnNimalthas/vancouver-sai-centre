@@ -1,4 +1,4 @@
-import type { Bhajan } from "./types";
+import type { Bhajan, BhajanTempo } from "./types";
 import { BHAJAN_DEITY_OPTIONS } from "./types";
 
 /**
@@ -70,6 +70,15 @@ function guessCategory(title: string, lyrics: string): string {
   return "";
 }
 
+function extractMetaRow(html: string, rowClass: string): string {
+  const regex = new RegExp(`${rowClass}['"][^>]*>.*?col-dxs-8[^>]*>([\\s\\S]*?)<\/div>`, "i");
+  const match = html.match(regex);
+  if (match) {
+    return stripTags(match[1]).trim();
+  }
+  return "";
+}
+
 /**
  * Extract a bhajan from the HTML of a SaiRhythms song page.
  * Returns whatever it can find; callers should treat missing lyrics as a
@@ -102,15 +111,47 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
     .filter(Boolean)
     .join("\n");
 
-  // ── Beat: the metadata label that reads "<n> Beat" → just the number ──
+  // ── Beat ──
   let beatTaal = "";
-  for (const m of html.matchAll(/class=['"]label label-default['"][^>]*>(.*?)<\/span>/gi)) {
-    const label = stripTags(m[1]);
-    const beat = label.match(/(\d+)\s*Beat/i);
-    if (beat) {
-      beatTaal = beat[1];
-      break;
+  const rawBeat = extractMetaRow(html, "beat-row");
+  if (rawBeat) {
+    const match = rawBeat.match(/(\d+)/);
+    if (match) {
+      beatTaal = match[1];
     }
+  }
+  if (!beatTaal) {
+    for (const m of html.matchAll(/class=['"]label label-default['"][^>]*>(.*?)<\/span>/gi)) {
+      const label = stripTags(m[1]);
+      const beat = label.match(/(\d+)\s*Beat/i);
+      if (beat) {
+        beatTaal = beat[1];
+        break;
+      }
+    }
+  }
+
+  // ── Deity / Category ──
+  const rawDeity = extractMetaRow(html, "deity-row");
+  let category = "";
+  if (rawDeity) {
+    const cleanDeity = rawDeity.toLowerCase().trim();
+    const directMatch = BHAJAN_DEITY_OPTIONS.find(
+      (opt) => opt.toLowerCase() === cleanDeity
+    );
+    if (directMatch) {
+      category = directMatch;
+    } else {
+      const subMatch = BHAJAN_DEITY_OPTIONS.find(
+        (opt) => cleanDeity.includes(opt.toLowerCase())
+      );
+      if (subMatch) {
+        category = subMatch;
+      }
+    }
+  }
+  if (!category) {
+    category = guessCategory(title, lyrics);
   }
 
   // ── Meaning: the blue "alert-info" box below the lyrics ──
@@ -123,12 +164,37 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
       .trim();
   }
 
-  // ── Language: the first lyrics tab label (e.g. "Sanskrit / Hindi") ──
+  // ── Language ──
   let language = "Sanskrit";
-  const langTab = html.match(/class=['"]alt-lyrics-title['"][^>]*>(.*?)<\/a>/i);
-  if (langTab) {
-    const raw = stripTags(langTab[1]).trim();
-    if (raw) language = raw;
+  const rawLanguage = extractMetaRow(html, "language-row");
+  if (rawLanguage) {
+    language = rawLanguage;
+  } else {
+    const langTab = html.match(/class=['"]alt-lyrics-title['"][^>]*>(.*?)<\/a>/i);
+    if (langTab) {
+      const raw = stripTags(langTab[1]).trim();
+      if (raw) language = raw;
+    }
+  }
+
+  // ── Tempo ──
+  const rawTempo = extractMetaRow(html, "tempo-row");
+  let tempo: BhajanTempo = "medium";
+  if (rawTempo) {
+    const t = rawTempo.toLowerCase().trim();
+    if (t === "slow" || t === "medium slow") {
+      if (!beatTaal || beatTaal === "0" || beatTaal === "6" || /no beat/i.test(rawBeat)) {
+        tempo = "melodic";
+      } else {
+        tempo = "slow";
+      }
+    } else if (t === "medium") {
+      tempo = "medium";
+    } else if (t === "medium fast") {
+      tempo = "fast";
+    } else if (t === "fast" || t === "very fast") {
+      tempo = "very_fast";
+    }
   }
 
   return {
@@ -136,9 +202,9 @@ export function parseSaiRhythmsHtml(rawHtml: string, url: string): Partial<Bhaja
     lyrics,
     meaning,
     language,
-    tempo: "medium",
+    tempo,
     beatTaal,
-    category: guessCategory(title, lyrics),
+    category,
     sourceLink: url,
     status: "pending",
     audioUrl: null,
