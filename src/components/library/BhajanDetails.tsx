@@ -6,6 +6,7 @@ import { MalaDivider } from "@/components/MalaDivider";
 import { Reveal } from "@/components/Reveal";
 import type { Bhajan } from "@/lib/types";
 import { transliterate } from "@/lib/transliteration";
+import { ShrinkableLine } from "./ShrinkableLine";
 
 interface BhajanDetailsProps {
   versions: Bhajan[];
@@ -122,14 +123,16 @@ export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps)
             })}
           </div>
 
-          <div className="w-full rounded-lg bg-sand/70 px-6 py-12 text-center sm:px-12">
-            <p className={`whitespace-pre-line text-ink ${
+          <div className="w-full rounded-lg bg-sand/70 px-6 py-12 text-center sm:px-12 overflow-hidden">
+            <div className={`flex flex-col text-ink ${
               selectedScript === "english"
                 ? "font-display text-2xl leading-[2]"
                 : "font-sans text-2xl leading-[2.2] tracking-wide"
             } ${isTransliterating ? "opacity-50" : "opacity-100"} transition-opacity duration-300`}>
-              {transliteratedLyrics || activeBhajan.lyrics}
-            </p>
+              {(transliteratedLyrics || activeBhajan.lyrics).split('\n').map((line, idx) => (
+                <ShrinkableLine key={idx} text={line} />
+              ))}
+            </div>
           </div>
         </div>
       </Reveal>
