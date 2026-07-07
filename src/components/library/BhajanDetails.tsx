@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { MalaDivider } from "@/components/MalaDivider";
 import { Reveal } from "@/components/Reveal";
@@ -15,7 +15,37 @@ interface BhajanDetailsProps {
 export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps) {
   const [activeId, setActiveId] = useState(initialActiveId);
   const [selectedScript, setSelectedScript] = useState<"english" | "devanagari" | "telugu" | "tamil">("english");
+  const [transliteratedLyrics, setTransliteratedLyrics] = useState("");
+  const [isTransliterating, setIsTransliterating] = useState(false);
+  
   const activeBhajan = versions.find((v) => v.id === activeId) || versions[0];
+
+  useEffect(() => {
+    if (!activeBhajan) return;
+    
+    if (selectedScript === "english") {
+      setTransliteratedLyrics(activeBhajan.lyrics);
+      setIsTransliterating(false);
+      return;
+    }
+    
+    let active = true;
+    setIsTransliterating(true);
+    
+    transliterate(activeBhajan.lyrics, selectedScript).then((res) => {
+      if (active) {
+        setTransliteratedLyrics(res);
+        setIsTransliterating(false);
+      }
+    }).catch(() => {
+      if (active) {
+        setTransliteratedLyrics(activeBhajan.lyrics);
+        setIsTransliterating(false);
+      }
+    });
+    
+    return () => { active = false; };
+  }, [selectedScript, activeBhajan?.lyrics]);
 
   if (!activeBhajan) return null;
 
@@ -97,10 +127,8 @@ export function BhajanDetails({ versions, initialActiveId }: BhajanDetailsProps)
               selectedScript === "english"
                 ? "font-display text-2xl leading-[2]"
                 : "font-sans text-2xl leading-[2.2] tracking-wide"
-            }`}>
-              {selectedScript === "english"
-                ? activeBhajan.lyrics
-                : transliterate(activeBhajan.lyrics, selectedScript)}
+            } ${isTransliterating ? "opacity-50" : "opacity-100"} transition-opacity duration-300`}>
+              {transliteratedLyrics || activeBhajan.lyrics}
             </p>
           </div>
         </div>
