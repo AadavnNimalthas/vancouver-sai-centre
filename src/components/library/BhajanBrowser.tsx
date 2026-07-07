@@ -11,10 +11,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const TEMPO_GLYPH: Record<Bhajan["tempo"], string> = {
   melodic: "♫",
-  slow: "●○○",
-  medium: "●●○",
+  slow: "●●●",
+  medium: "●●●",
   fast: "●●●",
-  very_fast: "●●●●",
+  very_fast: "●●●",
 };
 
 export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[]; signedIn?: boolean }) {
@@ -516,9 +516,9 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
 
 function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="mr-1 text-[0.7rem] font-semibold uppercase tracking-[0.16em] text-ink-faint">
-        {label}
+    <div className="flex flex-wrap items-center gap-2 border border-line/50 bg-white-warm/60 rounded-xl px-4 py-2">
+      <span className="mr-2 text-[0.65rem] font-bold uppercase tracking-[0.16em] text-ink-soft">
+        {label}:
       </span>
       {children}
     </div>
