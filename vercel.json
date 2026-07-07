@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/scrub-sairhythms",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

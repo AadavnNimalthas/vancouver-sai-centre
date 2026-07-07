@@ -7,6 +7,7 @@ import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
 import { getDemoDb, mutateDemoDb, newId, saveDemoDb } from "./demo-db-store";
 import type { ActionResult } from "./actions";
+import { generateEmbedding, buildBhajanEmbeddingText } from "./embeddings";
 import {
   canManageWing,
   wingForCategory,
@@ -19,6 +20,7 @@ import {
   type SiteContent,
   type Wing,
   type WingSlug,
+  type Bhajan,
   type BhajanTempo,
 } from "./types";
 
@@ -746,6 +748,23 @@ export async function editBhajan(
   }
 
   const supabase = await createClient();
+  const embeddingText = buildBhajanEmbeddingText({
+    title: patch.title,
+    category: patch.category,
+    language: patch.language,
+    tempo: patch.tempo,
+    beatTaal: patch.beatTaal,
+    lyrics: patch.lyrics,
+    meaning: patch.meaning
+  });
+
+  let embeddingVector = null;
+  try {
+    embeddingVector = await generateEmbedding(embeddingText);
+  } catch (e) {
+    console.error("Failed to generate embedding during editBhajan", e);
+  }
+
   const row = {
     title: patch.title,
     lyrics: patch.lyrics,
@@ -759,6 +778,7 @@ export async function editBhajan(
     audio_url: patch.audioUrl || null,
     video_url: patch.videoUrl || null,
     status: patch.status || "approved",
+    ...(embeddingVector ? { embedding: embeddingVector } : {})
   };
 
   const { error } = id

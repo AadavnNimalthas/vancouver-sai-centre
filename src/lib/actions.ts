@@ -7,6 +7,7 @@ import { createClient } from "./supabase/server";
 import { sendEmail } from "./email";
 import { getDemoDb, mutateDemoDb, newId, saveDemoDb } from "./demo-db-store";
 import { parseSaiRhythmsHtml, titleFromSaiRhythmsUrl } from "./sairhythms";
+import { generateEmbedding, buildBhajanEmbeddingText } from "./embeddings";
 import type { Bhajan, BhajanTempo, Registration } from "./types";
 
 export interface ImportResult {
@@ -387,6 +388,23 @@ export async function submitBhajan(input: {
     return { ok: true, message: "Bhajan submitted and is pending administrator approval.", insertedId: newId };
   }
 
+  const embeddingText = buildBhajanEmbeddingText({
+    title: input.title,
+    category: input.category || "Sai",
+    language: input.language || "Sanskrit",
+    tempo: input.tempo,
+    beatTaal: input.beatTaal,
+    lyrics: input.lyrics,
+    meaning: input.meaning
+  });
+  
+  let embeddingVector = null;
+  try {
+    embeddingVector = await generateEmbedding(embeddingText);
+  } catch (e) {
+    console.error("Failed to generate embedding during submit", e);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bhajans")
@@ -404,6 +422,7 @@ export async function submitBhajan(input: {
       video_url: input.videoUrl || null,
       status: "pending",
       created_by: userId,
+      embedding: embeddingVector
     })
     .select("id")
     .single();
@@ -566,3 +585,39 @@ export async function submitFormResponse(input: {
   return { ok: true, message: "Thank you — your sign-up has been received." };
 }
 
+/**
+ * Perform semantic search on Bhajans using OpenAI embeddings and pgvector.
+ */
+export async function searchBhajansSemantically(query: string, limit = 10): Promise<{ id: string; similarity: number }[]> {
+  if (!query.trim()) return [];
+
+  // In demo mode, we can't do semantic search without a vector database, so just return empty.
+  if (!isSupabaseConfigured) {
+    return [];
+  }
+
+  let queryEmbedding: number[];
+  try {
+    queryEmbedding = await generateEmbedding(query);
+  } catch (e) {
+    console.error("Failed to generate embedding for search query", e);
+    return [];
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("match_bhajans", {
+    query_embedding: queryEmbedding,
+    match_threshold: 0.7, // Only return decently relevant matches
+    match_count: limit,
+  });
+
+  if (error) {
+    console.error("Supabase RPC error matching bhajans", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    similarity: row.similarity,
+  }));
+}

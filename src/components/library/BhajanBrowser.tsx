@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { FilterChip } from "@/components/events/EventsExplorer";
 import { type Bhajan, type BhajanTempo, BHAJAN_DEITY_OPTIONS, BHAJAN_TEMPO_OPTIONS } from "@/lib/types";
 import { capitalizeEachWord, checkDuplicateBhajan, normalizeSearchText } from "@/lib/bhajan-utils";
 import { SaiRhythmsImporter } from "./SaiRhythmsImporter";
-import { submitBhajan } from "@/lib/actions";
+import { submitBhajan, searchBhajansSemantically } from "@/lib/actions";
 import { motion, AnimatePresence } from "framer-motion";
 
 const TEMPO_GLYPH: Record<Bhajan["tempo"], string> = {
@@ -55,6 +55,25 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     () => [...new Set(bhajans.map((b) => b.beatTaal))].filter(Boolean).sort(),
     [bhajans]
   );
+
+  const [semanticMatches, setSemanticMatches] = useState<{ id: string; similarity: number }[] | null>(null);
+
+  // Trigger semantic search for longer queries
+  useEffect(() => {
+    const q = query.trim();
+    if (q.split(/\s+/).length < 3) {
+      setSemanticMatches(null);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      searchBhajansSemantically(q).then(res => {
+        setSemanticMatches(res);
+      });
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [query]);
 
   interface GroupedBhajan extends Bhajan {
     versions: Bhajan[];
@@ -105,18 +124,31 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
       if (!matchBeat) return false;
       
       if (q) {
-        const normalizedQ = normalizeSearchText(q);
-        const matchQuery = gb.versions.some((v) => {
-          const combined = `${v.title} ${v.meaning} ${v.lyrics}`;
-          return normalizeSearchText(combined).includes(normalizedQ);
-        });
-        if (!matchQuery) return false;
+        if (semanticMatches && q.split(/\s+/).length >= 3) {
+          // If we have semantic matches, only keep those that match
+          const hasMatch = gb.versions.some(v => semanticMatches.some(sm => sm.id === v.id));
+          if (!hasMatch) return false;
+        } else {
+          // Regular text search
+          const normalizedQ = normalizeSearchText(q);
+          const matchQuery = gb.versions.some((v) => {
+            const combined = `${v.title} ${v.meaning} ${v.lyrics}`;
+            return normalizeSearchText(combined).includes(normalizedQ);
+          });
+          if (!matchQuery) return false;
+        }
       }
       
       return true;
     });
 
-    if (sortBy === "alpha") {
+    if (semanticMatches && query.trim().split(/\s+/).length >= 3) {
+      result.sort((a, b) => {
+        const simA = Math.max(0, ...a.versions.map(v => semanticMatches.find(sm => sm.id === v.id)?.similarity || 0));
+        const simB = Math.max(0, ...b.versions.map(v => semanticMatches.find(sm => sm.id === v.id)?.similarity || 0));
+        return simB - simA;
+      });
+    } else if (sortBy === "alpha") {
       result.sort((a, b) => a.title.localeCompare(b.title));
     } else if (sortBy === "recent") {
       result.sort((a, b) => {
@@ -133,7 +165,7 @@ export function BhajanBrowser({ bhajans, signedIn = true }: { bhajans: Bhajan[];
     }
 
     return result;
-  }, [groupedBhajans, query, language, tempo, category, beatTaal, sortBy]);
+  }, [groupedBhajans, query, language, tempo, category, beatTaal, sortBy, semanticMatches]);
 
   function handleSuggestManual(bypassCheck: boolean | React.MouseEvent = false) {
     if (!title || !lyrics || !meaning || !catInput || !beatInput) {
