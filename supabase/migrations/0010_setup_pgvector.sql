@@ -1,8 +1,8 @@
 -- Enable the pgvector extension to work with embedding vectors
 create extension if not exists vector with schema extensions;
 
--- Add a vector column to the bhajans table for storing OpenAI embeddings
-alter table public.bhajans add column if not exists embedding vector(1536);
+-- Add a vector column to the bhajans table for storing local embeddings
+alter table public.bhajans add column if not exists embedding vector(384);
 
 -- Create an HNSW index for fast semantic search over embeddings
 create index if not exists bhajans_embedding_hnsw_idx 
@@ -11,7 +11,7 @@ create index if not exists bhajans_embedding_hnsw_idx
 
 -- Create a Postgres function that performs cosine similarity search
 create or replace function match_bhajans (
-  query_embedding vector(1536),
+  query_embedding vector(384),
   match_threshold float,
   match_count int
 )

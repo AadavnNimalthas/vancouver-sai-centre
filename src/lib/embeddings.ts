@@ -1,35 +1,18 @@
-import OpenAI from "openai";
-
-// Lazily initialize OpenAI client so it doesn't break if API key is missing on the client-side
-let openai: OpenAI | null = null;
-
-export function getOpenAIClient() {
-  if (!openai) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error("OPENAI_API_KEY is not set in the environment.");
-    }
-    openai = new OpenAI({ apiKey });
-  }
-  return openai;
-}
+import PipelineSingleton from "./transformers";
 
 /**
- * Generates a vector embedding for the given text using text-embedding-3-small.
+ * Generates a vector embedding for the given text using local Xenova/all-MiniLM-L6-v2.
+ * Returns a 384-dimensional vector.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const client = getOpenAIClient();
-  
   // Clean up the text: remove excess whitespace and newlines
   const cleanedText = text.replace(/\s+/g, " ").trim();
   
-  const response = await client.embeddings.create({
-    model: "text-embedding-3-small",
-    input: cleanedText,
-    encoding_format: "float",
-  });
+  const extractor = await PipelineSingleton.getInstance();
+  const output = await extractor(cleanedText, { pooling: 'mean', normalize: true });
   
-  return response.data[0].embedding;
+  // Convert Float32Array to standard JS Array
+  return Array.from(output.data);
 }
 
 /**
