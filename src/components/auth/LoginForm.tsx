@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { SITE_URL } from "@/lib/config";
+import { getSiteURL } from "@/lib/config";
 
 /**
  * Sign in with a password or an emailed link. Sessions are persistent:
@@ -22,6 +22,7 @@ export function LoginForm({ demoMode }: { demoMode: boolean }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("busy");
+    const next = new URLSearchParams(window.location.search).get("next") || "/portal";
     const supabase = createClient();
 
     if (mode === "password") {
@@ -35,14 +36,14 @@ export function LoginForm({ demoMode }: { demoMode: boolean }) {
         );
         return;
       }
-      router.push("/portal");
+      router.push(next);
       router.refresh();
       return;
     }
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${SITE_URL}/auth/callback` },
+      options: { emailRedirectTo: `${getSiteURL()}/auth/callback?next=${encodeURIComponent(next)}` },
     });
     if (error) {
       setStatus("error");

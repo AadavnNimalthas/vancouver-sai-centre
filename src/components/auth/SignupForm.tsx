@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { SITE_URL } from "@/lib/config";
+import { getSiteURL } from "@/lib/config";
 
 export function SignupForm({ demoMode }: { demoMode: boolean }) {
   const [fullName, setFullName] = useState("");
@@ -21,7 +21,7 @@ export function SignupForm({ demoMode }: { demoMode: boolean }) {
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${SITE_URL}/auth/callback?next=/portal`,
+        emailRedirectTo: `${getSiteURL()}/auth/callback?next=/portal`,
       },
     });
     if (error) {

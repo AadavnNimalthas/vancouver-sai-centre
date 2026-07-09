@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { SITE_URL } from "@/lib/config";
+import { getSiteURL } from "@/lib/config";
 
 export function RequestResetForm({ demoMode }: { demoMode: boolean }) {
   const [email, setEmail] = useState("");
@@ -16,7 +16,7 @@ export function RequestResetForm({ demoMode }: { demoMode: boolean }) {
     setStatus("busy");
     const supabase = createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${SITE_URL}/auth/callback?next=/update-password`,
+      redirectTo: `${getSiteURL()}/auth/callback?next=/update-password`,
     });
     if (error) {
       setStatus("error");

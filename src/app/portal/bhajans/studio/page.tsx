@@ -1,51 +1,29 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { StudioApp, type StudioSeedUser } from "./StudioApp";
 
-import React, { useEffect } from 'react';
-import { AppProvider, useAppStore } from '@/studio/services/store';
-import { Dashboard } from '@/studio/components/Dashboard';
-import { Layout } from '@/studio/components/Layout';
-import { BhajanLibrary } from '@/studio/components/BhajanLibrary';
-import { LineupGenerator } from '@/studio/components/LineupGenerator';
-import { Messages } from '@/studio/components/Messages';
-import { ZenSession } from '@/studio/components/ZenSession';
-import { Presentation } from '@/studio/components/Presentation';
-import { Search } from '@/studio/components/Search';
-import { Profile } from '@/studio/components/Profile';
-import { Playlists } from '@/studio/components/Playlists';
+// VSC roles that get ISai admin tools (the "Curator" lineup builder).
+const VSC_ADMIN_ROLES = ["executive", "president", "administrator"];
 
-// Note: We bypassed the original Auth and Onboarding screens 
-// because we are already inside the VSC member portal layout!
+export default async function StudioPage() {
+  // The portal already requires auth, but resolve the member here so we can
+  // seed the studio and auto-log-them-in — no separate ISai sign-in.
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/portal/bhajans/studio");
 
-const StudioContent: React.FC = () => {
-  const { state, actions } = useAppStore();
+  const initialUser: StudioSeedUser = {
+    userId: `vsc-${user.id}`,
+    name: user.fullName || user.email,
+    email: user.email,
+    role: VSC_ADMIN_ROLES.includes(user.role) ? "ADMIN" : "SINGER",
+    skillRating: 2,
+    preferredDeity: "Sai",
+    centerId: "center-123",
+    isHarmoniumPlayer: false,
+    vibrationLevel: 108,
+    authProvider: "vsc",
+    vscRole: user.role,
+  };
 
-  // Force bypass auth view since VSC portal handles auth
-  useEffect(() => {
-    if (state.view === 'AUTH' || state.view === 'ONBOARDING') {
-      actions.navigate('DASHBOARD');
-    }
-  }, [state.view, actions]);
-
-  if (state.view === 'ZEN_SESSION') return <ZenSession />;
-  if (state.view === 'PRESENTATION') return <Presentation />;
-
-  return (
-    <Layout>
-      {state.view === 'DASHBOARD' && <Dashboard />}
-      {state.view === 'LIBRARY' && <BhajanLibrary />}
-      {state.view === 'LINEUP' && <LineupGenerator />}
-      {state.view === 'MESSAGES' && <Messages />}
-      {state.view === 'SEARCH' && <Search />}
-      {state.view === 'PROFILE' && <Profile />}
-      {state.view === 'PLAYLISTS' && <Playlists />}
-    </Layout>
-  );
-};
-
-export default function StudioPage() {
-  return (
-    <AppProvider>
-      <StudioContent />
-    </AppProvider>
-  );
+  return <StudioApp initialUser={initialUser} />;
 }

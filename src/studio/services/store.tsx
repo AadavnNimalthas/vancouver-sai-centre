@@ -130,7 +130,7 @@ const reducer = (state: AppState, action: Action): AppState => {
 
 const AppContext = createContext<any>(null);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AppProvider: React.FC<{ children: React.ReactNode; initialUser?: any }> = ({ children, initialUser }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
@@ -190,6 +190,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('offline', checkOnline);
     return () => { window.removeEventListener('online', checkOnline); window.removeEventListener('offline', checkOnline); };
   }, []);
+
+  // Auto-login: when the VSC portal seeds a member, adopt them as the ISai user.
+  useEffect(() => {
+    if (initialUser) {
+      localStorage.setItem('isai_user', JSON.stringify(initialUser));
+      dispatch({ type: 'LOGIN', payload: initialUser });
+    }
+  }, [initialUser]);
 
   const actions = {
     login: async (id: string) => {
